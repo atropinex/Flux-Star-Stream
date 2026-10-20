@@ -4,6 +4,7 @@ import { useCarouselInput } from './controllers/useCarouselInput';
 import { useOverlayVisible } from './controllers/useOverlayVisible';
 import { usePlaylists } from './controllers/usePlaylists';
 import { usePlayback } from './controllers/usePlayback';
+import { usePlayingTracks } from './controllers/usePlayingTracks';
 import { useProgress } from './controllers/useProgress';
 import { useSelection } from './controllers/useSelection';
 import { useSettings } from './controllers/useSettings';
@@ -16,6 +17,7 @@ import { CreatePlaylistDialog } from './views/CreatePlaylistDialog';
 import { Header } from './views/Header';
 import { LoginScreen } from './views/LoginScreen';
 import { PlayerBar } from './views/PlayerBar';
+import { PlayingRow } from './views/PlayingRow';
 import { PlaylistRow } from './views/PlaylistRow';
 import { SettingsPanel } from './views/SettingsPanel';
 import { Toast } from './views/Toast';
@@ -40,6 +42,7 @@ export default function App() {
   const selection = useSelection(list.tracks.length, list.tracks);
   const player = usePlayback(isLoggedIn && isVisible, toast.show);
   const positionMs = useProgress(player.playback);
+  const playing = usePlayingTracks(player.playback, library.playlists, library.version);
 
   // Each time the overlay opens, jump to the playlist that is playing.
   const hasSyncedThisOpening = useRef(false);
@@ -78,6 +81,13 @@ export default function App() {
     }
   }
 
+  // Clicking the centered song in the playing row: pause/resume if it is the current one, otherwise play it.
+  function playFromPlaying(index: number) {
+    const track = playing.tracks[index];
+    if (index === playing.playingIndex) player.togglePlay();
+    else if (track && playing.contextUri) player.play({ context_uri: playing.contextUri, offset: { uri: track.uri } });
+  }
+
   const playPlaylist = () => library.selected && player.play({ context_uri: library.selected.uri });
 
   const selectPlaylist = (index: number) => {
@@ -96,6 +106,7 @@ export default function App() {
   useCarouselInput({
     onMove: (step) => !isModalOpen && selection.move(step),
     onMovePlaylist: (step) => !isModalOpen && movePlaylist(step),
+    onMovePlaying: (step) => !isModalOpen && playing.move(step),
     onPlay: () => !isModalOpen && playTrack(selection.index),
     onTogglePlay: () => !isModalOpen && player.togglePlay(),
     onEscape: () => {
@@ -108,13 +119,16 @@ export default function App() {
 
   return (
     // Clicking the dark area around the panel closes the overlay.
-    <div className="backdrop" onMouseDown={(event) => event.target === event.currentTarget && window.api.hideOverlay()}>
+    <div
+      className={`backdrop${isVisible ? ' shown' : ''}${player.playback?.isPlaying ? '' : ' paused'}`}
+      onMouseDown={(event) => event.target === event.currentTarget && window.api.hideOverlay()}>
       <div className="panel">
         <Header query={query} onQueryChange={setQuery} onOpenSettings={() => setIsSettingsOpen(true)} />
 
         <PlaylistRow
           playlists={library.playlists}
           selectedIndex={library.selectedIndex}
+          playingUri={player.playback?.contextUri ?? null}
           onSelect={selectPlaylist}
           onPlay={playPlaylist}
           onCreate={() => setDialog({ kind: 'create', track: null })}
@@ -123,6 +137,8 @@ export default function App() {
         <Carousel
           tracks={list.tracks}
           selectedIndex={selection.index}
+          listKey={list.listKey}
+          playingTrackId={player.playback?.track.id ?? null}
           heading={heading}
           isLoading={list.isLoading}
           hasFailed={list.hasFailed}
@@ -131,6 +147,18 @@ export default function App() {
           onPlay={playTrack}
           onPlayPlaylist={playPlaylist}
           onAddToPlaylist={() => selectedTrack && setDialog({ kind: 'add', track: selectedTrack })}
+        />
+
+        <PlayingRow
+          tracks={playing.tracks}
+          selectedIndex={playing.focusIndex}
+          playingIndex={playing.playingIndex}
+          listKey={playing.listKey}
+          heading={playing.heading}
+          hasPlayback={player.playback !== null}
+          isLoading={playing.isLoading}
+          onSelect={playing.select}
+          onActivate={playFromPlaying}
         />
 
         <PlayerBar

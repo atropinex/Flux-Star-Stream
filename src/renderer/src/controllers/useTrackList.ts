@@ -5,9 +5,13 @@ import { describeError } from '../models/spotifyApi';
 
 const SEARCH_DELAY_MS = 400; // wait until the user stops typing
 
-/** The songs shown in the carousel: search results when searching, otherwise the selected playlist. */
+/**
+ * The songs shown in the browse row: search results when searching, otherwise the selected playlist.
+ * `listKey` changes exactly when a new list arrives, which is what triggers the entrance animation.
+ */
 export function useTrackList(playlist: Playlist | undefined, query: string, onError: (message: string) => void, version = 0) {
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [listKey, setListKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [hasFailed, setHasFailed] = useState(false);
 
@@ -17,6 +21,7 @@ export function useTrackList(playlist: Playlist | undefined, query: string, onEr
   useEffect(() => {
     if (!search && !playlistId) return setTracks([]);
 
+    const key = search ? `search:${search}` : `playlist:${playlistId}`;
     let isCancelled = false;
     setIsLoading(true);
     setHasFailed(false);
@@ -24,10 +29,15 @@ export function useTrackList(playlist: Playlist | undefined, query: string, onEr
     const timer = setTimeout(() => {
       const request = search ? searchTracks(search) : fetchPlaylistTracks(playlistId!);
       request
-        .then((loaded) => !isCancelled && setTracks(loaded))
+        .then((loaded) => {
+          if (isCancelled) return;
+          setTracks(loaded);
+          setListKey(key);
+        })
         .catch((error) => {
           if (isCancelled) return;
           setTracks([]);
+          setListKey(key);
           setHasFailed(true);
           if (search) onError(describeError(error));
         })
@@ -40,5 +50,5 @@ export function useTrackList(playlist: Playlist | undefined, query: string, onEr
     };
   }, [search, playlistId, onError, version]); // version changes when songs were added
 
-  return { tracks, isLoading, hasFailed, isSearching: search !== '' };
+  return { tracks, listKey, isLoading, hasFailed, isSearching: search !== '' };
 }

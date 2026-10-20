@@ -10,7 +10,7 @@ export class TrayController {
 
   start(): void {
     this.tray = new Tray(nativeImage.createFromDataURL(TRAY_ICON));
-    this.tray.setToolTip('Star Stream');
+    this.tray.setToolTip('Mist');
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: 'Show / hide', click: () => this.overlay.toggle() },

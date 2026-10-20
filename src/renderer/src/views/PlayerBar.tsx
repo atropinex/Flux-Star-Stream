@@ -64,8 +64,8 @@ export function PlayerBar({ playback, positionMs, onTogglePlay, onNext, onPrevio
   return (
     <footer className="player">
       <div className="now-playing">
-        <div className="cover" style={{ backgroundImage: coverUrl ? `url(${coverUrl})` : undefined }} />
-        <div className="meta">
+        <div key={track?.id} className="cover fade-in" style={{ backgroundImage: coverUrl ? `url(${coverUrl})` : undefined }} />
+        <div key={track?.id} className="meta fade-in">
           <div className="track-title">{track?.name ?? 'Nothing playing'}</div>
           <div className="track-artist">
             {track ? track.artists.map((artist) => artist.name).join(', ') : 'Press Enter on a song'}
@@ -78,7 +78,9 @@ export function PlayerBar({ playback, positionMs, onTogglePlay, onNext, onPrevio
           <IconButton label="Shuffle" isActive={playback?.isShuffled} onClick={onShuffle}><ShuffleIcon size={18} /></IconButton>
           <IconButton label="Previous" onClick={onPrevious}><PreviousIcon size={22} /></IconButton>
           <button className="play-pause" onClick={onTogglePlay} title="Play / Pause" aria-label="Play / Pause">
-            {playback?.isPlaying ? <PauseIcon size={22} /> : <PlayIcon size={22} />}
+            <span key={playback?.isPlaying ? 'pause' : 'play'} className="pop">
+              {playback?.isPlaying ? <PauseIcon size={22} /> : <PlayIcon size={22} />}
+            </span>
           </button>
           <IconButton label="Next" onClick={onNext}><NextIcon size={22} /></IconButton>
         </div>

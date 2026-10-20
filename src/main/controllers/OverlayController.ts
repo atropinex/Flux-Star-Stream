@@ -4,9 +4,13 @@ import { IPC } from '../../shared/ipc';
 import type { SettingsModel } from '../models/SettingsModel';
 import type { SpotifyApp } from '../models/SpotifyApp';
 
+const CLOSE_ANIMATION_MS = 220; // the page fades out before the window is hidden
+
 /** The full-screen overlay window and the keybind that opens it. */
 export class OverlayController {
   private window!: BrowserWindow;
+  private isOpen = false;
+  private hideTimer: NodeJS.Timeout | undefined;
 
   constructor(private settings: SettingsModel, private spotifyApp: SpotifyApp) {}
 
@@ -21,10 +25,12 @@ export class OverlayController {
   }
 
   toggle(): void {
-    this.window.isVisible() ? this.hide() : this.show();
+    this.isOpen ? this.hide() : this.show();
   }
 
   show(minimizeSpotify = true): void {
+    clearTimeout(this.hideTimer); // cancels a close that is still animating
+    this.isOpen = true;
     // Cover the screen the mouse is on.
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     this.window.setBounds(display.bounds);
@@ -39,8 +45,10 @@ export class OverlayController {
   }
 
   hide(): void {
-    this.window.hide();
-    this.window.webContents.send(IPC.visibility, false);
+    this.isOpen = false;
+    this.window.webContents.send(IPC.visibility, false); // starts the fade-out in the page
+    clearTimeout(this.hideTimer);
+    this.hideTimer = setTimeout(() => this.window.hide(), CLOSE_ANIMATION_MS);
   }
 
   /** Changes the keybind. Returns false (and keeps the old one) if it cannot be used. */

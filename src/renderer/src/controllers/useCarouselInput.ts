@@ -1,19 +1,20 @@
 import { useEffect } from 'react';
 
 interface Handlers {
-  onMove: (step: number) => void;         // songs
+  onMove: (step: number) => void;         // preview songs
   onMovePlaylist: (step: number) => void; // playlists
+  onMovePlaying: (step: number) => void;  // songs of the playing playlist
   onPlay: () => void;
   onTogglePlay: () => void;
   onEscape: () => void;
 }
 
 /**
- * Mouse wheel and keyboard.
- * ← → songs, ↑ ↓ playlists, Enter plays, Space pauses, Esc closes. Ignored while typing.
- * The wheel moves playlists when the mouse is over the playlist row, songs everywhere else.
+ * Mouse wheel and keyboard. Ignored while typing.
+ * Wheel: scrolls the row under the mouse. Anywhere else it scrolls the preview row.
+ * Keys:  ← → preview songs, Shift + ← → playing songs, ↑ ↓ playlists, Enter plays, Space pauses, Esc closes.
  */
-export function useCarouselInput({ onMove, onMovePlaylist, onPlay, onTogglePlay, onEscape }: Handlers) {
+export function useCarouselInput({ onMove, onMovePlaylist, onMovePlaying, onPlay, onTogglePlay, onEscape }: Handlers) {
   useEffect(() => {
     const handleWheel = (event: WheelEvent) => {
       const target = event.target as HTMLElement;
@@ -21,7 +22,13 @@ export function useCarouselInput({ onMove, onMovePlaylist, onPlay, onTogglePlay,
 
       const amount = event.deltaY || event.deltaX;
       if (Math.abs(amount) <= 4) return;
-      (target.closest('.banner-row.small') ? onMovePlaylist : onMove)(Math.sign(amount));
+
+      const move = target.closest('.banner-row.small')
+        ? onMovePlaylist
+        : target.closest('.playing-row')
+          ? onMovePlaying
+          : onMove;
+      move(Math.sign(amount));
     };
 
     const handleKey = (event: KeyboardEvent) => {
@@ -29,8 +36,8 @@ export function useCarouselInput({ onMove, onMovePlaylist, onPlay, onTogglePlay,
       if (event.target instanceof HTMLInputElement) return;
       const isButton = event.target instanceof HTMLButtonElement;
 
-      if (event.key === 'ArrowRight') onMove(1);
-      if (event.key === 'ArrowLeft') onMove(-1);
+      if (event.key === 'ArrowRight') (event.shiftKey ? onMovePlaying : onMove)(1);
+      if (event.key === 'ArrowLeft') (event.shiftKey ? onMovePlaying : onMove)(-1);
       if (event.key === 'ArrowDown') onMovePlaylist(1);
       if (event.key === 'ArrowUp') onMovePlaylist(-1);
       if (event.key === 'Enter' && !isButton) onPlay();
@@ -46,5 +53,5 @@ export function useCarouselInput({ onMove, onMovePlaylist, onPlay, onTogglePlay,
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('keydown', handleKey);
     };
-  }, [onMove, onMovePlaylist, onPlay, onTogglePlay, onEscape]);
+  }, [onMove, onMovePlaylist, onMovePlaying, onPlay, onTogglePlay, onEscape]);
 }
