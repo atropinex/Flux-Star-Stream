@@ -1,0 +1,2 @@
+// A small teal circle used as the tray icon.
+export const TRAY_ICON = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAcklEQVR4nO3O2w3AIAxDUfafrIPwxRLtArxM7ARVseTve0rJgXtqe2cPC8sgaJgKscZNCFb8CMGOQwhVfBsRClDHl4hQgFd8iEhAAhIQDvBEdONXADwQ0/gVACViK65CQHE24ijOQpjiFggtjEJk4d/uA31znwGVlfvHAAAAAElFTkSuQmCC';
