@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react';
-import type { AppSettings } from '../../../shared/types';
+import type { AppSettings, Theme, UpdatableSettings } from '../../../shared/types';
+import { describeAccelerator, toAccelerator } from '../utils/accelerator';
 import { IconButton } from './IconButton';
 import { CloseIcon } from './Icons';
-import { describeAccelerator, toAccelerator } from '../utils/accelerator';
 
 interface Props {
   settings: AppSettings;
+  themes: Theme[];
+  themeErrors: string[];
   onShortcut: (accelerator: string) => Promise<boolean>;
-  onMinimizeSpotify: (on: boolean) => void;
+  onUpdate: (changes: UpdatableSettings) => void;
+  onReloadThemes: () => void;
   onError: (message: string) => void;
   onClose: () => void;
 }
 
-export function SettingsPanel({ settings, onShortcut, onMinimizeSpotify, onError, onClose }: Props) {
+export function SettingsPanel({ settings, themes, themeErrors, onShortcut, onUpdate, onReloadThemes, onError, onClose }: Props) {
   const [isRecording, setIsRecording] = useState(false);
 
   // While recording, the next key combination becomes the new keybind.
@@ -53,14 +56,23 @@ export function SettingsPanel({ settings, onShortcut, onMinimizeSpotify, onError
         </section>
 
         <section>
+          <h3>Theme</h3>
+          <select value={settings.theme} onChange={(event) => onUpdate({ theme: event.target.value })}>
+            {themes.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
+          </select>
+          <div className="settings-buttons">
+            <button className="pill" onClick={() => window.api.openThemesFolder()}>Open themes folder</button>
+            <button className="pill" onClick={onReloadThemes}>Reload</button>
+          </div>
+          <p className="note">Themes are YAML files in that folder. Edit one or copy it to make your own, then press Reload.</p>
+          {themeErrors.map((message) => <p key={message} className="note error">{message}</p>)}
+        </section>
+
+        <section>
           <h3>Spotify app</h3>
           <label className="switch">
             Minimize it when the overlay opens
-            <input
-              type="checkbox"
-              checked={settings.minimizeSpotify}
-              onChange={(event) => onMinimizeSpotify(event.target.checked)}
-            />
+            <input type="checkbox" checked={settings.minimizeSpotify} onChange={(event) => onUpdate({ minimizeSpotify: event.target.checked })} />
           </label>
         </section>
       </aside>

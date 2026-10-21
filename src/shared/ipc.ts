@@ -5,9 +5,13 @@ export const IPC = {
   getToken: 'auth:get-token',
   login: 'auth:login',
   setClientId: 'auth:set-client-id',
+  usesBuiltInClientId: 'auth:uses-built-in-client-id',
   getSettings: 'settings:get',
+  updateSettings: 'settings:update',
   setShortcut: 'settings:set-shortcut',
-  setMinimizeSpotify: 'settings:set-minimize-spotify',
+  listThemes: 'themes:list',
+  openThemesFolder: 'themes:open-folder',
+  openInSpotify: 'spotify:open',
   hideOverlay: 'overlay:hide',
   visibility: 'overlay:visibility' // sent from main to the page when the overlay shows or hides
 } as const;

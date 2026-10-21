@@ -10,7 +10,7 @@ interface Props {
 export function Header({ query, onQueryChange, onOpenSettings }: Props) {
   return (
     <header className="header">
-      <b className="brand">MIST</b>
+      <b className="brand">Star Stream</b>
 
       <label className="search">
         <SearchIcon size={16} />

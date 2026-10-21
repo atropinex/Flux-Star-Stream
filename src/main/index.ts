@@ -2,6 +2,7 @@ import { app } from 'electron';
 import { AuthModel } from './models/AuthModel';
 import { SettingsModel } from './models/SettingsModel';
 import { SpotifyApp } from './models/SpotifyApp';
+import { ThemeModel } from './models/ThemeModel';
 import { IpcController } from './controllers/IpcController';
 import { OverlayController } from './controllers/OverlayController';
 import { TrayController } from './controllers/TrayController';
@@ -15,7 +16,7 @@ app.whenReady().then(() => {
   const settings = new SettingsModel();
   const overlay = new OverlayController(settings, new SpotifyApp());
 
-  new IpcController(new AuthModel(), settings, overlay).register();
+  new IpcController(new AuthModel(), settings, new ThemeModel(), overlay).register();
   overlay.start();
   new TrayController(overlay).start();
 

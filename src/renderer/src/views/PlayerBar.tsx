@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type
 import type { PlaybackState } from '../models/types';
 import { formatTime } from '../utils/formatTime';
 import { IconButton } from './IconButton';
-import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, ShuffleIcon, VolumeIcon } from './Icons';
+import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, RepeatIcon, ShuffleIcon, VolumeIcon } from './Icons';
 
 const VOLUME_DELAY_MS = 150;
 
@@ -13,12 +13,13 @@ interface Props {
   onNext: () => void;
   onPrevious: () => void;
   onShuffle: () => void;
+  onLoop: () => void;
   onSeek: (fraction: number) => void;
   onVolume: (percent: number) => void;
 }
 
 /** The "now playing" bar: song on the left, controls and progress in the middle, volume on the right. */
-export function PlayerBar({ playback, positionMs, onTogglePlay, onNext, onPrevious, onShuffle, onSeek, onVolume }: Props) {
+export function PlayerBar({ playback, positionMs, onTogglePlay, onNext, onPrevious, onShuffle, onLoop, onSeek, onVolume }: Props) {
   const [volume, setVolume] = useState(60);
   const volumeBeforeMute = useRef(50);
   const isDraggingVolume = useRef(false);
@@ -59,6 +60,8 @@ export function PlayerBar({ playback, positionMs, onTogglePlay, onNext, onPrevio
   const coverUrl = track?.album.images[0]?.url;
   const durationMs = playback?.durationMs ?? 0;
   const progress = durationMs ? (positionMs / durationMs) * 100 : 0;
+  const repeat = playback?.repeatState ?? 'off';
+  const loopLabel = repeat === 'context' ? 'Loop 1: playlist' : repeat === 'track' ? 'Loop 2: song' : 'Loop off';
   const volumeLevel = volume === 0 ? 'mute' : volume < 50 ? 'low' : 'high';
 
   return (
@@ -83,6 +86,10 @@ export function PlayerBar({ playback, positionMs, onTogglePlay, onNext, onPrevio
             </span>
           </button>
           <IconButton label="Next" onClick={onNext}><NextIcon size={22} /></IconButton>
+          <IconButton label={loopLabel} isActive={repeat !== 'off'} onClick={onLoop}>
+            <RepeatIcon size={18} />
+            {repeat !== 'off' && <span className="loop-badge">{repeat === 'context' ? '1' : '2'}</span>}
+          </IconButton>
         </div>
 
         <div className="seek-row">

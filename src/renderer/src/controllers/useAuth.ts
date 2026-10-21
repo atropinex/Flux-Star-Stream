@@ -7,10 +7,12 @@ export type AuthStatus = 'checking' | 'logged-out' | 'logged-in';
 export function useAuth(onError: (message: string) => void) {
   const [status, setStatus] = useState<AuthStatus>('checking');
   const [isConfigured, setIsConfigured] = useState(true);
+  const [isBuiltIn, setIsBuiltIn] = useState(false);
 
   useEffect(() => {
     (async () => {
       setIsConfigured(await window.api.isConfigured());
+      setIsBuiltIn(await window.api.usesBuiltInClientId());
       setStatus((await window.api.hasSession()) ? 'logged-in' : 'logged-out');
     })();
   }, []);
@@ -32,5 +34,5 @@ export function useAuth(onError: (message: string) => void) {
 
   const changeClientId = useCallback(() => setIsConfigured(false), []);
 
-  return { status, isConfigured, login, saveClientId, changeClientId };
+  return { status, isConfigured, canChangeClientId: !isBuiltIn, login, saveClientId, changeClientId };
 }

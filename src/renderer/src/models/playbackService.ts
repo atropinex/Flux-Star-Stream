@@ -1,10 +1,11 @@
-import type { Device, PlaybackState, Track } from './types';
+import type { Device, PlaybackState, RepeatState, Track } from './types';
 import { ApiError, spotifyRequest } from './spotifyApi';
 
 interface PlayerResponse {
   item: (Track & { duration_ms: number }) | null;
   is_playing: boolean;
   shuffle_state: boolean;
+  repeat_state: RepeatState;
   progress_ms: number;
   device?: { id: string | null; name: string; volume_percent: number | null };
   context?: { uri: string } | null;
@@ -13,7 +14,10 @@ interface PlayerResponse {
 /** The ways we ask Spotify to start playing. */
 export type PlayRequest =
   | { context_uri: string; offset?: { uri: string } }
-  | { uris: string[]; offset: { position: number } };
+  | { uris: string[]; offset?: { position: number } };
+
+const deviceQuery = (deviceId?: string | null, first = true) =>
+  deviceId ? `${first ? '?' : '&'}device_id=${deviceId}` : '';
 
 /** Reads what is playing on any of the user's devices. Returns null when nothing is. */
 export async function fetchPlayback(): Promise<PlaybackState | null> {
@@ -24,6 +28,7 @@ export async function fetchPlayback(): Promise<PlaybackState | null> {
     track: data.item,
     isPlaying: data.is_playing,
     isShuffled: data.shuffle_state,
+    repeatState: data.repeat_state ?? 'off',
     volume: data.device?.volume_percent ?? 60,
     durationMs: data.item.duration_ms,
     positionMs: data.progress_ms,
@@ -34,12 +39,12 @@ export async function fetchPlayback(): Promise<PlaybackState | null> {
   };
 }
 
-/** Starts playback in the Spotify app. If no device is active, picks this computer's Spotify app. */
-export async function startPlayback(request: PlayRequest): Promise<void> {
+/** Starts playback. With no device given, uses the active one (or this computer's Spotify app). */
+export async function startPlayback(request: PlayRequest, deviceId: string | null = null): Promise<void> {
   try {
-    await spotifyRequest('/me/player/play', 'PUT', request);
+    await spotifyRequest(`/me/player/play${deviceQuery(deviceId)}`, 'PUT', request);
   } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 404) throw error;
+    if (deviceId || !(error instanceof ApiError) || error.status !== 404) throw error;
 
     const devices = await fetchDevices();
     const device = devices.find((d) => d.id && d.type === 'Computer') ?? devices.find((d) => d.id);
@@ -59,5 +64,7 @@ export const togglePlay = (isPlaying: boolean) =>
 export const skipNext = () => spotifyRequest('/me/player/next', 'POST');
 export const skipPrevious = () => spotifyRequest('/me/player/previous', 'POST');
 export const setShuffle = (on: boolean) => spotifyRequest(`/me/player/shuffle?state=${on}`, 'PUT');
+export const setRepeat = (state: RepeatState) => spotifyRequest(`/me/player/repeat?state=${state}`, 'PUT');
 export const seekTo = (positionMs: number) => spotifyRequest(`/me/player/seek?position_ms=${positionMs}`, 'PUT');
-export const setDeviceVolume = (percent: number) => spotifyRequest(`/me/player/volume?volume_percent=${percent}`, 'PUT');
+export const setDeviceVolume = (percent: number, deviceId?: string | null) =>
+  spotifyRequest(`/me/player/volume?volume_percent=${percent}${deviceQuery(deviceId, false)}`, 'PUT');

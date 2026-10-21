@@ -3,13 +3,14 @@ import { REDIRECT_URI } from '../../../shared/spotifyConfig';
 
 interface Props {
   isConfigured: boolean;
+  canChangeClientId: boolean; // false when the app ships with its own Client ID
   onLogin: () => void;
   onSaveClientId: (clientId: string) => void;
   onChangeClientId: () => void;
 }
 
 /** First run: ask for the Spotify Client ID. After that: the login button. */
-export function LoginScreen({ isConfigured, onLogin, onSaveClientId, onChangeClientId }: Props) {
+export function LoginScreen({ isConfigured, canChangeClientId, onLogin, onSaveClientId, onChangeClientId }: Props) {
   const [clientId, setClientId] = useState('');
 
   if (isConfigured) {
@@ -17,7 +18,7 @@ export function LoginScreen({ isConfigured, onLogin, onSaveClientId, onChangeCli
       <div className="login">
         <h2>Connect Spotify</h2>
         <button onClick={onLogin}>Log in</button>
-        <button className="link" onClick={onChangeClientId}>Change Client ID</button>
+        {canChangeClientId && <button className="link" onClick={onChangeClientId}>Change Client ID</button>}
       </div>
     );
   }

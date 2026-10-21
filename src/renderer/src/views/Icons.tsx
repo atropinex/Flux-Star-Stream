@@ -27,6 +27,7 @@ export const PauseIcon = (p: IconProps) => <Svg filled {...p}><path d="M6 5h4v14
 export const NextIcon = (p: IconProps) => <Svg filled {...p}><path d="M6 5l9 7-9 7zM17 5h2v14h-2z" /></Svg>;
 export const PreviousIcon = (p: IconProps) => <Svg filled {...p}><path d="M18 5l-9 7 9 7zM5 5h2v14H5z" /></Svg>;
 export const ShuffleIcon = (p: IconProps) => <Svg {...p}><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></Svg>;
+export const RepeatIcon = (p: IconProps) => <Svg {...p}><path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" /></Svg>;
 export const SearchIcon = (p: IconProps) => <Svg {...p}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.5-4.5" /></Svg>;
 export const SettingsIcon = (p: IconProps) => <Svg {...p}><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" /></Svg>;
 export const PlusIcon = (p: IconProps) => <Svg {...p}><path d="M12 5v14M5 12h14" /></Svg>;

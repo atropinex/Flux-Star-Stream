@@ -8,9 +8,13 @@ const api: ElectronApi = {
   getToken: () => ipcRenderer.invoke(IPC.getToken),
   login: () => ipcRenderer.invoke(IPC.login),
   setClientId: (clientId) => ipcRenderer.invoke(IPC.setClientId, clientId),
+  usesBuiltInClientId: () => ipcRenderer.invoke(IPC.usesBuiltInClientId),
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
+  updateSettings: (changes) => ipcRenderer.invoke(IPC.updateSettings, changes),
   setShortcut: (accelerator) => ipcRenderer.invoke(IPC.setShortcut, accelerator),
-  setMinimizeSpotify: (on) => ipcRenderer.invoke(IPC.setMinimizeSpotify, on),
+  listThemes: () => ipcRenderer.invoke(IPC.listThemes),
+  openThemesFolder: () => ipcRenderer.send(IPC.openThemesFolder),
+  openInSpotify: (uri) => ipcRenderer.send(IPC.openInSpotify, uri),
   hideOverlay: () => ipcRenderer.send(IPC.hideOverlay),
   onVisibilityChange: (callback) => {
     const listener = (_event: IpcRendererEvent, isVisible: boolean) => callback(isVisible);

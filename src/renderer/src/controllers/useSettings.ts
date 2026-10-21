@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { AppSettings } from '../../../shared/types';
+import type { AppSettings, UpdatableSettings } from '../../../shared/types';
 
-/** The overlay's settings (keybind, minimize Spotify). They are saved by the main process. */
+/** The overlay's settings. They are saved by the main process. */
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
@@ -16,10 +16,11 @@ export function useSettings() {
     return isAccepted;
   }
 
-  async function setMinimizeSpotify(on: boolean) {
-    await window.api.setMinimizeSpotify(on);
-    setSettings((current) => current && { ...current, minimizeSpotify: on });
+  /** Changes any other setting. The screen updates first, so sliders feel instant. */
+  async function update(changes: UpdatableSettings) {
+    setSettings((current) => current && { ...current, ...changes });
+    await window.api.updateSettings(changes);
   }
 
-  return { settings, changeShortcut, setMinimizeSpotify };
+  return { settings, changeShortcut, update };
 }

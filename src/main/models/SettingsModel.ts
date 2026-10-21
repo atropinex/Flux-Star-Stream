@@ -3,7 +3,11 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { AppSettings } from '../../shared/types';
 
-const DEFAULTS: AppSettings = { shortcut: 'CommandOrControl+Alt+M', minimizeSpotify: true };
+const DEFAULTS: AppSettings = {
+  shortcut: 'CommandOrControl+Alt+M',
+  minimizeSpotify: true,
+  theme: 'default'
+};
 
 /** The overlay's settings, saved on this computer. */
 export class SettingsModel {

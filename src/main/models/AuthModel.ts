@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { createHash, randomBytes } from 'crypto';
 import { readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { REDIRECT_URI, SCOPES } from '../../shared/spotifyConfig';
+import { BUILT_IN_CLIENT_ID, REDIRECT_URI, SCOPES } from '../../shared/spotifyConfig';
 
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const AUTH_URL = 'https://accounts.spotify.com/authorize';
@@ -30,15 +30,20 @@ const toBase64Url = (buffer: Buffer): string =>
 export class AuthModel {
   private tokenFile = join(app.getPath('userData'), 'tokens.json');
   private clientFile = join(app.getPath('userData'), 'client-id.txt');
-  private clientId = this.loadClientId();
+  private clientId = BUILT_IN_CLIENT_ID || this.loadClientId(); // the built-in one wins
   private tokens: Tokens | null = this.loadTokens();
 
   isConfigured(): boolean {
     return this.clientId !== '';
   }
 
+  usesBuiltInClientId(): boolean {
+    return BUILT_IN_CLIENT_ID !== '';
+  }
+
   /** Saves the Client ID typed into the app. A different Client ID means a fresh login. */
   setClientId(clientId: string): void {
+    if (this.usesBuiltInClientId()) return; // the app ships with its own
     this.clientId = clientId.trim();
     writeFileSync(this.clientFile, this.clientId);
     rmSync(this.tokenFile, { force: true });

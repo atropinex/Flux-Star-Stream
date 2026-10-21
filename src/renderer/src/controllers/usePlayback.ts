@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { PlaybackState } from '../models/types';
+import type { PlaybackState, RepeatState } from '../models/types';
 import * as service from '../models/playbackService';
-import { describeError } from '../models/spotifyApi';
+import { ApiError, describeError } from '../models/spotifyApi';
 
 const POLL_INTERVAL_MS = 1500; // how often we ask Spotify what is playing (only while the overlay is open)
 const REFRESH_DELAY_MS = 400;  // wait after a command before asking again
+
+// Loop button order: off, then Loop 1 (the playlist), then Loop 2 (the song).
+const NEXT_REPEAT: Record<RepeatState, RepeatState> = { off: 'context', context: 'track', track: 'off' };
+
+/** The song a play request is about, so it can be opened in the Spotify app. */
+function uriOf(request: service.PlayRequest): string {
+  if ('context_uri' in request) return request.offset?.uri ?? request.context_uri;
+  return request.uris[request.offset?.position ?? 0] ?? request.uris[0];
+}
 
 /** What the Spotify app is playing, and the commands that control it. */
 export function usePlayback(isActive: boolean, onError: (message: string) => void) {
@@ -40,11 +49,28 @@ export function usePlayback(isActive: boolean, onError: (message: string) => voi
 
   return {
     playback,
-    play: (request: service.PlayRequest) => run(() => service.startPlayback(request)),
+
+    /** Spotify does not let apps control free accounts, so there the song is opened in the Spotify app instead. */
+    async play(request: service.PlayRequest) {
+      try {
+        await service.startPlayback(request);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 403) {
+          window.api.openInSpotify(uriOf(request));
+          onError('Free accounts cannot be controlled from here, so it was opened in the Spotify app.');
+        } else {
+          onError(describeError(error));
+        }
+        return;
+      }
+      setTimeout(refresh, REFRESH_DELAY_MS);
+    },
+
     togglePlay: () => run(() => service.togglePlay(playback?.isPlaying ?? false)),
     next: () => run(service.skipNext),
     previous: () => run(service.skipPrevious),
     toggleShuffle: () => run(() => service.setShuffle(!playback?.isShuffled)),
+    cycleRepeat: () => run(() => service.setRepeat(NEXT_REPEAT[playback?.repeatState ?? 'off'])),
     seekToFraction: (fraction: number) =>
       playback && run(() => service.seekTo(Math.floor(fraction * playback.durationMs))),
     setVolume: (percent: number) => run(() => service.setDeviceVolume(percent))

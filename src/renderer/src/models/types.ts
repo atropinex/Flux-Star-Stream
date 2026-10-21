@@ -19,6 +19,7 @@ export interface Track {
   name: string;
   type?: string;
   is_local?: boolean;
+  duration_ms?: number;
   artists: { name: string }[];
   album: { images: SpotifyImage[] };
 }
@@ -28,13 +29,17 @@ export interface Device {
   name: string;
   type: string;
   is_active: boolean;
+  volume_percent?: number | null;
 }
+
+export type RepeatState = 'off' | 'context' | 'track'; // 'context' = loop the playlist
 
 /** What is playing, as the player bar needs it. */
 export interface PlaybackState {
   track: Track;
   isPlaying: boolean;
   isShuffled: boolean;
+  repeatState: RepeatState;
   volume: number;
   durationMs: number;
   positionMs: number; // position at the moment we asked Spotify

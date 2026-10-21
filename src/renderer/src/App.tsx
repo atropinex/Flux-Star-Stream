@@ -8,6 +8,7 @@ import { usePlayingTracks } from './controllers/usePlayingTracks';
 import { useProgress } from './controllers/useProgress';
 import { useSelection } from './controllers/useSelection';
 import { useSettings } from './controllers/useSettings';
+import { useTheme } from './controllers/useTheme';
 import { useToast } from './controllers/useToast';
 import { useTrackList } from './controllers/useTrackList';
 import type { Track } from './models/types';
@@ -20,6 +21,7 @@ import { PlayerBar } from './views/PlayerBar';
 import { PlayingRow } from './views/PlayingRow';
 import { PlaylistRow } from './views/PlaylistRow';
 import { SettingsPanel } from './views/SettingsPanel';
+import { ThemeLayers } from './views/ThemeLayers';
 import { Toast } from './views/Toast';
 
 // Which dialog is open. A song can travel along, so "New playlist" can start with it.
@@ -32,7 +34,8 @@ export default function App() {
   const isLoggedIn = auth.status === 'logged-in';
   const isVisible = useOverlayVisible();
 
-  const { settings, changeShortcut, setMinimizeSpotify } = useSettings();
+  const { settings, changeShortcut, update: updateSettings } = useSettings();
+  const theme = useTheme(settings?.theme, isVisible);
   const [query, setQuery] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -44,6 +47,7 @@ export default function App() {
   const positionMs = useProgress(player.playback);
   const playing = usePlayingTracks(player.playback, library.playlists, library.version);
 
+  const selectedTrack = list.tracks[selection.index];
   // Each time the overlay opens, jump to the playlist that is playing.
   const hasSyncedThisOpening = useRef(false);
   useEffect(() => {
@@ -101,7 +105,6 @@ export default function App() {
   };
 
   const isModalOpen = isSettingsOpen || dialog !== null;
-  const selectedTrack = list.tracks[selection.index];
 
   useCarouselInput({
     onMove: (step) => !isModalOpen && selection.move(step),
@@ -118,10 +121,13 @@ export default function App() {
   });
 
   return (
-    // Clicking the dark area around the panel closes the overlay.
+    // Clicking the dark area around the content closes the overlay.
     <div
       className={`backdrop${isVisible ? ' shown' : ''}${player.playback?.isPlaying ? '' : ' paused'}`}
-      onMouseDown={(event) => event.target === event.currentTarget && window.api.hideOverlay()}>
+      onMouseDown={(event) => event.target === event.currentTarget && window.api.hideOverlay()}
+    >
+      <ThemeLayers theme={theme.active} />
+
       <div className="panel">
         <Header query={query} onQueryChange={setQuery} onOpenSettings={() => setIsSettingsOpen(true)} />
 
@@ -168,6 +174,7 @@ export default function App() {
           onNext={player.next}
           onPrevious={player.previous}
           onShuffle={player.toggleShuffle}
+          onLoop={player.cycleRepeat}
           onSeek={player.seekToFraction}
           onVolume={player.setVolume}
         />
@@ -175,8 +182,11 @@ export default function App() {
         {isSettingsOpen && settings && (
           <SettingsPanel
             settings={settings}
+            themes={theme.themes}
+            themeErrors={theme.errors}
             onShortcut={changeShortcut}
-            onMinimizeSpotify={setMinimizeSpotify}
+            onUpdate={updateSettings}
+            onReloadThemes={theme.reload}
             onError={toast.show}
             onClose={() => setIsSettingsOpen(false)}
           />
@@ -203,6 +213,7 @@ export default function App() {
         {auth.status === 'logged-out' && (
           <LoginScreen
             isConfigured={auth.isConfigured}
+            canChangeClientId={auth.canChangeClientId}
             onLogin={auth.login}
             onSaveClientId={auth.saveClientId}
             onChangeClientId={auth.changeClientId}
