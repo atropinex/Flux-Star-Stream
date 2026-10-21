@@ -3,12 +3,8 @@ import { IPC } from '../shared/ipc';
 import type { ElectronApi } from '../shared/types';
 
 const api: ElectronApi = {
-  isConfigured: () => ipcRenderer.invoke(IPC.isConfigured),
-  hasSession: () => ipcRenderer.invoke(IPC.hasSession),
-  getToken: () => ipcRenderer.invoke(IPC.getToken),
-  login: () => ipcRenderer.invoke(IPC.login),
-  setClientId: (clientId) => ipcRenderer.invoke(IPC.setClientId, clientId),
-  usesBuiltInClientId: () => ipcRenderer.invoke(IPC.usesBuiltInClientId),
+  bridgeRequest: (command, args) => ipcRenderer.invoke(IPC.bridgeRequest, command, args),
+  isBridgeConnected: () => ipcRenderer.invoke(IPC.bridgeStatus),
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
   updateSettings: (changes) => ipcRenderer.invoke(IPC.updateSettings, changes),
   setShortcut: (accelerator) => ipcRenderer.invoke(IPC.setShortcut, accelerator),

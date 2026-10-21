@@ -1,6 +1,6 @@
-const BASE_URL = 'https://api.spotify.com/v1';
+import type { BridgeReply } from '../../../shared/types';
 
-type HttpMethod = 'GET' | 'POST' | 'PUT';
+const BASE_URL = 'https://api.spotify.com/v1';
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
@@ -8,33 +8,25 @@ export class ApiError extends Error {
   }
 }
 
-/** Sends a request with the login token. Returns null when Spotify has nothing to send back. */
-export async function spotifyRequest<T = unknown>(
-  path: string,
-  method: HttpMethod = 'GET',
-  body?: unknown
-): Promise<T | null> {
-  const token = await window.api.getToken();
+/** Sends a command to Spotify through the Spicetify extension and returns its answer. */
+export async function bridge(command: string, args?: unknown): Promise<unknown> {
+  const reply: BridgeReply = await window.api.bridgeRequest(command, args);
+  if (!reply.ok) throw new ApiError(reply.error.message, reply.error.status ?? 0);
+  return reply.data;
+}
+
+/**
+ * Asks Spotify's own web endpoints (search, playlists ...). The request runs inside the Spotify app, so it uses
+ * the app's own login and there is no Client ID, no login screen and no Development Mode limits.
+ * Returns null when Spotify has nothing to send back.
+ */
+export async function spotifyRequest<T = unknown>(path: string, method: 'GET' | 'POST' | 'PUT' = 'GET', body?: unknown): Promise<T | null> {
   const url = path.startsWith('http') ? path : BASE_URL + path;
-
-  const response = await fetch(url, {
-    method,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined
-  });
-
-  // 202 / 204 mean "worked, nothing to return".
-  if (response.status === 202 || response.status === 204) return null;
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new ApiError(data.error?.message ?? 'Request failed.', response.status);
-  return data as T;
+  const data = await bridge('http', { method, url, body });
+  return (data ?? null) as T | null;
 }
 
 /** Turns any error into a message that is fine to show the user. */
 export function describeError(error: unknown): string {
-  if (error instanceof ApiError && error.status === 403) {
-    return 'Spotify Premium is required to control playback.';
-  }
   return error instanceof Error ? error.message : 'Something went wrong.';
 }

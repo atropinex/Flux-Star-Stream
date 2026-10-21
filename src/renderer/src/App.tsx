@@ -30,7 +30,7 @@ type DialogState = { kind: 'create'; track: Track | null } | { kind: 'add'; trac
 /** Connects the controllers (hooks) to the views (components). */
 export default function App() {
   const toast = useToast();
-  const auth = useAuth(toast.show);
+  const auth = useAuth();
   const isLoggedIn = auth.status === 'logged-in';
   const isVisible = useOverlayVisible();
 
@@ -210,15 +210,7 @@ export default function App() {
           />
         )}
 
-        {auth.status === 'logged-out' && (
-          <LoginScreen
-            isConfigured={auth.isConfigured}
-            canChangeClientId={auth.canChangeClientId}
-            onLogin={auth.login}
-            onSaveClientId={auth.saveClientId}
-            onChangeClientId={auth.changeClientId}
-          />
-        )}
+        {auth.status === 'logged-out' && <LoginScreen />}
         <Toast message={toast.message} isVisible={toast.isVisible} />
       </div>
     </div>

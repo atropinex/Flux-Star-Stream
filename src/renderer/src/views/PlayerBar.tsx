@@ -67,8 +67,8 @@ export function PlayerBar({ playback, positionMs, onTogglePlay, onNext, onPrevio
   return (
     <footer className="player">
       <div className="now-playing">
-        <div key={track?.id} className="cover fade-in" style={{ backgroundImage: coverUrl ? `url(${coverUrl})` : undefined }} />
-        <div key={track?.id} className="meta fade-in">
+        <div key={`cover-${track?.id}`} className="cover fade-in" style={{ backgroundImage: coverUrl ? `url(${coverUrl})` : undefined }} />
+        <div key={`meta-${track?.id}`} className="meta fade-in">
           <div className="track-title">{track?.name ?? 'Nothing playing'}</div>
           <div className="track-artist">
             {track ? track.artists.map((artist) => artist.name).join(', ') : 'Press Enter on a song'}

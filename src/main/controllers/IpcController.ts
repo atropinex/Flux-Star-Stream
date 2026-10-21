@@ -1,7 +1,7 @@
 import { ipcMain, shell } from 'electron';
 import { IPC } from '../../shared/ipc';
-import type { UpdatableSettings } from '../../shared/types';
-import type { AuthModel } from '../models/AuthModel';
+import type { BridgeReply, UpdatableSettings } from '../../shared/types';
+import { BridgeError, type BridgeModel } from '../models/BridgeModel';
 import type { SettingsModel } from '../models/SettingsModel';
 import type { ThemeModel } from '../models/ThemeModel';
 import type { OverlayController } from './OverlayController';
@@ -17,19 +17,15 @@ function cleanSettings(changes: UpdatableSettings): UpdatableSettings {
 /** Answers requests that the page sends through the preload bridge. */
 export class IpcController {
   constructor(
-    private auth: AuthModel,
     private settings: SettingsModel,
     private themes: ThemeModel,
-    private overlay: OverlayController
+    private overlay: OverlayController,
+    private bridge: BridgeModel
   ) {}
 
   register(): void {
-    ipcMain.handle(IPC.isConfigured, () => this.auth.isConfigured());
-    ipcMain.handle(IPC.hasSession, () => this.auth.hasSession());
-    ipcMain.handle(IPC.getToken, () => this.auth.getAccessToken());
-    ipcMain.handle(IPC.setClientId, (_event, clientId: string) => this.auth.setClientId(clientId));
-    ipcMain.handle(IPC.usesBuiltInClientId, () => this.auth.usesBuiltInClientId());
-    ipcMain.handle(IPC.login, () => this.login());
+    ipcMain.handle(IPC.bridgeStatus, () => this.bridge.isConnected());
+    ipcMain.handle(IPC.bridgeRequest, (_event, command: string, args: unknown) => this.askSpotify(command, args));
 
     ipcMain.handle(IPC.getSettings, () => this.settings.get());
     ipcMain.handle(IPC.updateSettings, (_event, changes: UpdatableSettings) => this.settings.update(cleanSettings(changes)));
@@ -46,13 +42,14 @@ export class IpcController {
     ipcMain.on(IPC.hideOverlay, () => this.overlay.hide());
   }
 
-  /** The login page opens in the browser, which would sit behind the overlay, so hide it meanwhile. */
-  private async login(): Promise<void> {
-    this.overlay.hide();
+  /** Errors are returned as data, because Electron would wrap thrown errors in a long technical message. */
+  private async askSpotify(command: string, args: unknown): Promise<BridgeReply> {
+    if (typeof command !== 'string') return { ok: false, error: { message: 'Bad request.' } };
     try {
-      await this.auth.login();
-    } finally {
-      this.overlay.show(false);
+      return { ok: true, data: await this.bridge.request(command, args) };
+    } catch (error) {
+      const failure = error instanceof BridgeError ? error : new BridgeError('Something went wrong.');
+      return { ok: false, error: { message: failure.message, status: failure.status } };
     }
   }
 }

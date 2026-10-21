@@ -32,14 +32,13 @@ export interface ThemeList {
   errors: string[]; // problems found in theme files, shown in the settings
 }
 
+/** What the Spotify side (the Spicetify extension) answered to a request. */
+export type BridgeReply = { ok: true; data: unknown } | { ok: false; error: { message: string; status?: number } };
+
 /** Everything the page is allowed to ask the main process to do. */
 export interface ElectronApi {
-  isConfigured: () => Promise<boolean>;
-  hasSession: () => Promise<boolean>;
-  getToken: () => Promise<string | null>;
-  login: () => Promise<void>;
-  setClientId: (clientId: string) => Promise<void>;
-  usesBuiltInClientId: () => Promise<boolean>; // true when the app ships with its own Client ID
+  bridgeRequest: (command: string, args?: unknown) => Promise<BridgeReply>; // asks Spotify, through Spicetify
+  isBridgeConnected: () => Promise<boolean>;                                 // is Spotify (with the extension) connected?
   getSettings: () => Promise<AppSettings>;
   updateSettings: (changes: UpdatableSettings) => Promise<void>;
   setShortcut: (accelerator: string) => Promise<boolean>; // false if another app already uses it

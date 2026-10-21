@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { AuthModel } from './models/AuthModel';
+import { BridgeModel } from './models/BridgeModel';
 import { SettingsModel } from './models/SettingsModel';
 import { SpotifyApp } from './models/SpotifyApp';
 import { ThemeModel } from './models/ThemeModel';
@@ -16,7 +16,12 @@ app.whenReady().then(() => {
   const settings = new SettingsModel();
   const overlay = new OverlayController(settings, new SpotifyApp());
 
-  new IpcController(new AuthModel(), settings, new ThemeModel(), overlay).register();
+  // The Spicetify extension inside the Spotify app connects here. All Spotify requests go through it.
+  const bridge = new BridgeModel();
+  bridge.start();
+  app.on('will-quit', () => bridge.stop());
+
+  new IpcController(settings, new ThemeModel(), overlay, bridge).register();
   overlay.start();
   new TrayController(overlay).start();
 
