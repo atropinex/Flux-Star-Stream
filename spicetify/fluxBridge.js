@@ -163,87 +163,68 @@
     // Use Spotify's in-client APIs for browsing; the public Web API endpoints can be
     // restricted or changed independently of the player in newer Spotify builds.
     async libraryPlaylists() {
-      const rootlistApi = Spicetify.Platform && Spicetify.Platform.RootlistAPI;
-      if (!rootlistApi || typeof rootlistApi.getContents !== 'function') {
-        throw new Error('Spicetify Platform.RootlistAPI.getContents is unavailable in this Spotify version.');
-      }
-      // Spotify removed the legacy sp://core-playlist/v1/rootlist resolver in some builds.
-      const root = await rootlistApi.getContents();
+      const root = await Spicetify.Platform.RootlistAPI.getContents();
+      const rows = root.items || root.rows || [];
       const playlists = [];
       const seen = new Set();
-
       const visit = (items) => {
-        for (const row of items || []) {
-          const item = row?.item || row;
-          const children = item?.rows || item?.items || item?.children || item?.contents?.items;
-          if (children) visit(children);
-
-          const uri = item?.uri || item?.playlistUri || item?.link;
-          if (!uri || !String(uri).startsWith('spotify:playlist:') || seen.has(uri)) continue;
-          seen.add(uri);
-          const id = String(uri).split(':').pop();
-          const image = item.image_url || item.imageUrl || item.image || item.images?.[0]?.url;
-          playlists.push({
-            id, uri, name: item.name || item.title || item.metadata?.name || 'Untitled playlist',
-            images: image ? [{ url: typeof image === 'string' ? image : image.url }] : (item.images || []),
-            items: { total: item.totalLength || item.trackCount || item.count || 0 },
-            owner: item.owner || undefined,
-            collaborative: Boolean(item.collaborative)
-          });
+        for (const item of items || []) {
+          if (item.type === 'folder' || item.items) visit(item.items || item.children || []);
+          const uri = item.uri || item.playlistUri;
+          if ((item.type === 'playlist' || (uri && uri.startsWith('spotify:playlist:'))) && uri && !seen.has(uri)) {
+            seen.add(uri);
+            const id = uri.split(':').pop();
+            playlists.push({
+              id, uri, name: item.name || item.title || 'Untitled playlist',
+              images: item.images || (item.image ? [{ url: item.image }] : []),
+              items: { total: item.totalLength || item.trackCount || 0 },
+              owner: item.owner || undefined,
+              collaborative: Boolean(item.collaborative)
+            });
+          }
         }
       };
-
-      visit(root?.rows || root?.items || root?.contents?.items || []);
+      visit(rows);
       return playlists;
     },
     async playlistTracks(args) {
       const uri = args.uri || `spotify:playlist:${args.id}`;
       const result = await Spicetify.Platform.PlaylistAPI.getContents(uri);
-      const entries = result?.items || result?.contents?.items || result?.tracks?.items || [];
+      const entries = result.items || result.contents?.items || [];
       return entries.map((entry) => {
-        const item = entry?.item || entry?.track || entry;
+        const item = entry.item || entry.track || entry;
         if (!item || !item.uri || !item.uri.startsWith('spotify:track:')) return null;
-        const artists = item.artists || item.metadata?.artists || [];
-        const image = item.album?.images || item.images || item.album?.image;
         return {
-          id: item.id || item.uid || item.uri.split(':').pop(),
+          id: item.uid || item.uri.split(':').pop(),
           uri: item.uri,
           name: item.name || item.title || item.metadata?.title || '',
           type: 'track',
           is_local: Boolean(item.is_local),
           duration_ms: item.duration_ms || item.duration?.milliseconds || 0,
-          artists: artists.map((artist) => ({ name: typeof artist === 'string' ? artist : artist.name || artist.profile?.name || '' })).filter((artist) => artist.name),
-          album: { images: Array.isArray(image) ? image : (image ? [{ url: typeof image === 'string' ? image : image.url }] : []) }
+          artists: (item.artists || []).map((artist) => ({ name: typeof artist === 'string' ? artist : artist.name || artist.profile?.name || '' })).filter((artist) => artist.name),
+          album: { images: item.album?.images || item.images || [] }
         };
       }).filter(Boolean);
     },
     async searchTracks(args) {
-      const limit = args.limit || 10;
       if (Spicetify.Search && typeof Spicetify.Search.search === 'function') {
-        try {
-          const result = await Spicetify.Search.search(args.query, ['track'], limit, 0);
-          const items = result?.tracks?.items || result?.tracks || [];
-          const tracks = items.map((entry) => {
-            const item = entry?.track || entry;
-            const artists = item?.artists || item?.metadata?.artists || [];
-            const image = item?.album?.images || item?.images || item?.album?.image;
-            return {
-              id: item?.id || item?.uri?.split(':').pop(),
-              uri: item?.uri,
-              name: item?.name || item?.title || item?.metadata?.title || '',
-              type: 'track',
-              is_local: Boolean(item?.is_local),
-              duration_ms: item?.duration_ms || item?.duration?.milliseconds || 0,
-              artists: artists.map((artist) => ({ name: typeof artist === 'string' ? artist : artist.name || artist.profile?.name || '' })).filter((artist) => artist.name),
-              album: { images: Array.isArray(image) ? image : (image ? [{ url: typeof image === 'string' ? image : image.url }] : []) }
-            };
-          }).filter((item) => item.id && item.uri);
-          if (tracks.length) return tracks;
-        } catch (error) {
-          console.warn('[fluxBridge] client search failed; trying Spotify API', error);
-        }
+        const result = await Spicetify.Search.search(args.query, ['track'], args.limit || 10, 0);
+        const items = result?.tracks?.items || result?.tracks || [];
+        return items.map((entry) => {
+          const item = entry.track || entry;
+          return {
+            id: item.id || item.uri?.split(':').pop(),
+            uri: item.uri,
+            name: item.name || item.title || '',
+            type: 'track',
+            is_local: Boolean(item.is_local),
+            duration_ms: item.duration_ms || item.duration?.milliseconds || 0,
+            artists: (item.artists || []).map((artist) => ({ name: typeof artist === 'string' ? artist : artist.name || artist.profile?.name || '' })).filter((artist) => artist.name),
+            album: { images: item.album?.images || item.images || [] }
+          };
+        }).filter((item) => item.id && item.uri);
       }
-      const result = await Spicetify.CosmosAsync.get(`https://api.spotify.com/v1/search?q=${encodeURIComponent(args.query)}&type=track&limit=${limit}`);
+      const result = await Spicetify.CosmosAsync.get(`https://api.spotify.com/v1/search?q=${encodeURIComponent(args.query)}&type=track&limit=${args.limit || 10}`);
       return result?.tracks?.items || [];
     },
 
