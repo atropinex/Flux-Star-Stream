@@ -27,10 +27,27 @@
 
   // ---------- what is playing ----------
 
+  // Spotify-internal image URIs are not valid browser image URLs.
+  // A mosaic contains multiple image IDs; use its first image as a safe thumbnail fallback.
   const toImageUrl = (value) => {
-    if (!value) return undefined;
-    return value.startsWith('spotify:image:') ? `https://i.scdn.co/image/${value.slice('spotify:image:'.length)}` : value;
+    if (typeof value !== 'string' || !value) return undefined;
+    if (value.startsWith('spotify:image:')) {
+      return `https://i.scdn.co/image/${value.slice('spotify:image:'.length)}`;
+    }
+    if (value.startsWith('spotify:mosaic:')) {
+      const firstImageId = value.slice('spotify:mosaic:'.length).split(':')[0];
+      return firstImageId ? `https://i.scdn.co/image/${firstImageId}` : undefined;
+    }
+    return value;
   };
+
+  const normalizeImages = (images) => (Array.isArray(images) ? images : images ? [images] : [])
+    .map((image) => {
+      const value = typeof image === 'string' ? image : image?.url || image?.uri;
+      const url = toImageUrl(value);
+      return url ? { url } : null;
+    })
+    .filter(Boolean);
 
   /** Shapes a track like the Spotify Web API does, which is what the overlay expects. */
   function mapTrack(item) {
@@ -185,7 +202,7 @@
           const image = item.image_url || item.imageUrl || item.image || item.images?.[0]?.url;
           playlists.push({
             id, uri, name: item.name || item.title || item.metadata?.name || 'Untitled playlist',
-            images: image ? [{ url: typeof image === 'string' ? image : image.url }] : (item.images || []),
+            images: normalizeImages(image || item.images),
             items: { total: item.totalLength || item.trackCount || item.count || 0 },
             owner: item.owner || undefined,
             collaborative: Boolean(item.collaborative)
@@ -213,7 +230,7 @@
           is_local: Boolean(item.is_local),
           duration_ms: item.duration_ms || item.duration?.milliseconds || 0,
           artists: artists.map((artist) => ({ name: typeof artist === 'string' ? artist : artist.name || artist.profile?.name || '' })).filter((artist) => artist.name),
-          album: { images: Array.isArray(image) ? image : (image ? [{ url: typeof image === 'string' ? image : image.url }] : []) }
+          album: { images: normalizeImages(image) }
         };
       }).filter(Boolean);
     },
@@ -235,7 +252,7 @@
               is_local: Boolean(item?.is_local),
               duration_ms: item?.duration_ms || item?.duration?.milliseconds || 0,
               artists: artists.map((artist) => ({ name: typeof artist === 'string' ? artist : artist.name || artist.profile?.name || '' })).filter((artist) => artist.name),
-              album: { images: Array.isArray(image) ? image : (image ? [{ url: typeof image === 'string' ? image : image.url }] : []) }
+              album: { images: normalizeImages(image) }
             };
           }).filter((item) => item.id && item.uri);
           if (tracks.length) return tracks;
