@@ -38,6 +38,7 @@ export default function App() {
   const theme = useTheme(settings?.theme, isVisible);
   const [query, setQuery] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isLibraryHovered, setIsLibraryHovered] = useState(false);
   const [dialog, setDialog] = useState<DialogState>(null);
 
   const library = usePlaylists(isLoggedIn, toast.show);
@@ -131,29 +132,35 @@ export default function App() {
       <div className="panel">
         <Header query={query} onQueryChange={setQuery} onOpenSettings={() => setIsSettingsOpen(true)} />
 
-        <PlaylistRow
-          playlists={library.playlists}
-          selectedIndex={library.selectedIndex}
-          playingUri={player.playback?.contextUri ?? null}
-          onSelect={selectPlaylist}
-          onPlay={playPlaylist}
-          onCreate={() => setDialog({ kind: 'create', track: null })}
-        />
+        <div
+          className={`library-explorer${isLibraryHovered ? ' expanded' : ''}`}
+          onMouseEnter={() => setIsLibraryHovered(true)}
+          onMouseLeave={() => setIsLibraryHovered(false)}
+        >
+          <PlaylistRow
+            playlists={library.playlists}
+            selectedIndex={library.selectedIndex}
+            playingUri={player.playback?.contextUri ?? null}
+            onSelect={selectPlaylist}
+            onPlay={playPlaylist}
+            onCreate={() => setDialog({ kind: 'create', track: null })}
+          />
 
-        <Carousel
-          tracks={list.tracks}
-          selectedIndex={selection.index}
-          listKey={list.listKey}
-          playingTrackId={player.playback?.track.id ?? null}
-          heading={heading}
-          isLoading={list.isLoading}
-          hasFailed={list.hasFailed}
-          isSearching={list.isSearching}
-          onSelect={selection.select}
-          onPlay={playTrack}
-          onPlayPlaylist={playPlaylist}
-          onAddToPlaylist={() => selectedTrack && setDialog({ kind: 'add', track: selectedTrack })}
-        />
+          <Carousel
+            tracks={list.tracks}
+            selectedIndex={selection.index}
+            listKey={list.listKey}
+            playingTrackId={player.playback?.track.id ?? null}
+            heading={heading}
+            isLoading={list.isLoading}
+            hasFailed={list.hasFailed}
+            isSearching={list.isSearching}
+            onSelect={selection.select}
+            onPlay={playTrack}
+            onPlayPlaylist={playPlaylist}
+            onAddToPlaylist={() => selectedTrack && setDialog({ kind: 'add', track: selectedTrack })}
+          />
+        </div>
 
         <PlayingRow
           tracks={playing.tracks}
