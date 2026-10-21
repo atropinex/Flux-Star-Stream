@@ -7,3 +7,7 @@ dist
 .DS_Store
 tokens.json
 client-id.txt
+/.idea/.gitignore
+/.idea/encodings.xml
+/.idea/indexLayout.xml
+/.idea/vcs.xml
