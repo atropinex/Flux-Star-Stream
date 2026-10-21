@@ -1,24 +1,43 @@
+import { useState } from 'react';
+import { REDIRECT_URI } from '../../../shared/spotifyConfig';
+
 interface Props {
   isConfigured: boolean;
+  canChangeClientId: boolean; // false when the app ships with its own Client ID
   onLogin: () => void;
+  onSaveClientId: (clientId: string) => void;
+  onChangeClientId: () => void;
 }
 
-/** Users only sign in to Spotify; the app developer configures the Spotify application once. */
-export function LoginScreen({ isConfigured, onLogin }: Props) {
+/** First run: ask for the Spotify Client ID. After that: the login button. */
+export function LoginScreen({ isConfigured, canChangeClientId, onLogin, onSaveClientId, onChangeClientId }: Props) {
+  const [clientId, setClientId] = useState('');
+
+  if (isConfigured) {
+    return (
+      <div className="login">
+        <h2>Connect Spotify</h2>
+        <button onClick={onLogin}>Log in</button>
+        {canChangeClientId && <button className="link" onClick={onChangeClientId}>Change Client ID</button>}
+      </div>
+    );
+  }
+
   return (
     <div className="login">
-      <h2>Connect Spotify</h2>
-      {isConfigured ? (
-        <>
-          <p>Sign in to your Spotify account to control playback on your Spotify devices.</p>
-          <button onClick={onLogin}>Log in with Spotify</button>
-        </>
-      ) : (
-        <p className="note">
-          Spotify login is not configured for this build yet. The app developer needs to finish
-          setting up the Spotify application. You do not need to create a Spotify Developer app.
-        </p>
-      )}
+      <h2>Set up Spotify</h2>
+      <ol className="steps">
+        <li>Create an app at developer.spotify.com/dashboard</li>
+        <li>Add this redirect URI to it: <code>{REDIRECT_URI}</code></li>
+        <li>Paste the app's Client ID here</li>
+      </ol>
+      <input
+        placeholder="Client ID"
+        value={clientId}
+        onChange={(event) => setClientId(event.target.value)}
+        onKeyDown={(event) => event.key === 'Enter' && clientId.trim() && onSaveClientId(clientId)}
+      />
+      <button onClick={() => clientId.trim() && onSaveClientId(clientId)}>Save</button>
     </div>
   );
 }

@@ -4,7 +4,6 @@ export const IPC = {
   hasSession: 'auth:has-session',
   getToken: 'auth:get-token',
   login: 'auth:login',
-  logout: 'auth:logout',
   setClientId: 'auth:set-client-id',
   usesBuiltInClientId: 'auth:uses-built-in-client-id',
   getSettings: 'settings:get',
@@ -14,5 +13,5 @@ export const IPC = {
   openThemesFolder: 'themes:open-folder',
   openInSpotify: 'spotify:open',
   hideOverlay: 'overlay:hide',
-  visibility: 'overlay:visibility'
+  visibility: 'overlay:visibility' // sent from main to the page when the overlay shows or hides
 } as const;

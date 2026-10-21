@@ -7,7 +7,6 @@ const api: ElectronApi = {
   hasSession: () => ipcRenderer.invoke(IPC.hasSession),
   getToken: () => ipcRenderer.invoke(IPC.getToken),
   login: () => ipcRenderer.invoke(IPC.login),
-  logout: () => ipcRenderer.invoke(IPC.logout),
   setClientId: (clientId) => ipcRenderer.invoke(IPC.setClientId, clientId),
   usesBuiltInClientId: () => ipcRenderer.invoke(IPC.usesBuiltInClientId),
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
