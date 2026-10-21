@@ -1,12 +1,15 @@
+
 {
-  "name": "Star-Stream",
+  "name": "star-stream",
   "version": "1.0.0",
   "description": "Spotify Player Overlay",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder --win nsis"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -21,11 +24,40 @@
     "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^4.3.1",
     "electron": "^39.0.0",
+    "electron-builder": "^26.0.0",
     "electron-vite": "^4.0.0",
     "typescript": "^5.6.0",
     "vite": "^6.3.0"
   },
   "allowScripts": {
     "electron@39.8.10": true
+  },
+  "build": {
+    "appId": "com.starstream.app",
+    "productName": "Star Stream",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "installer/Install-Flux-Star-Stream.bat",
+        "to": "flux-setup/Install-Flux-Star-Stream.bat"
+      },
+      {
+        "from": "spicetify/fluxBridge.js",
+        "to": "flux-setup/fluxBridge.js"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
