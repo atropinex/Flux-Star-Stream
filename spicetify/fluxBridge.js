@@ -163,7 +163,12 @@
     // Use Spotify's in-client APIs for browsing; the public Web API endpoints can be
     // restricted or changed independently of the player in newer Spotify builds.
     async libraryPlaylists() {
-      const root = await Spicetify.CosmosAsync.get('sp://core-playlist/v1/rootlist');
+      const rootlistApi = Spicetify.Platform && Spicetify.Platform.RootlistAPI;
+      if (!rootlistApi || typeof rootlistApi.getContents !== 'function') {
+        throw new Error('Spicetify Platform.RootlistAPI.getContents is unavailable in this Spotify version.');
+      }
+      // Spotify removed the legacy sp://core-playlist/v1/rootlist resolver in some builds.
+      const root = await rootlistApi.getContents();
       const playlists = [];
       const seen = new Set();
 
