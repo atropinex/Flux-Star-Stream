@@ -5,6 +5,7 @@ type HttpMethod = 'GET' | 'POST' | 'PUT';
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
     super(message);
+    this.name = 'ApiError';
   }
 }
 
@@ -15,8 +16,9 @@ export async function spotifyRequest<T = unknown>(
   body?: unknown
 ): Promise<T | null> {
   const token = await window.api.getToken();
-  const url = path.startsWith('http') ? path : BASE_URL + path;
+  if (!token) throw new ApiError('Your Spotify session has expired. Please reconnect your account.', 401);
 
+  const url = path.startsWith('http') ? path : BASE_URL + path;
   const response = await fetch(url, {
     method,
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -27,14 +29,22 @@ export async function spotifyRequest<T = unknown>(
   if (response.status === 202 || response.status === 204) return null;
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new ApiError(data.error?.message ?? 'Request failed.', response.status);
+  if (!response.ok) {
+    const message = data.error?.message ?? data.error_description ?? data.message ?? 'Spotify API request failed.';
+    throw new ApiError(message, response.status);
+  }
   return data as T;
 }
 
-/** Turns any error into a message that is fine to show the user. */
+/** Keep Spotify's actual API message visible instead of treating every 403 as a Premium error. */
 export function describeError(error: unknown): string {
-  if (error instanceof ApiError && error.status === 403) {
-    return 'Spotify Premium is required to control playback.';
+  if (error instanceof ApiError) {
+    if (error.status === 401) return 'Your Spotify session has expired or was not authorized. Please reconnect Spotify.';
+    if (error.status === 403) {
+      return `Spotify denied this action: ${error.message} Playback-control endpoints may require Premium, and app access or permissions can also cause a 403.`;
+    }
+    if (error.status === 429) return 'Spotify is rate-limiting requests. Wait a moment and try again.';
+    return `Spotify API error (${error.status}): ${error.message}`;
   }
   return error instanceof Error ? error.message : 'Something went wrong.';
 }
