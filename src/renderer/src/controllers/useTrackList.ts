@@ -39,7 +39,7 @@ export function useTrackList(playlist: Playlist | undefined, query: string, onEr
           setTracks([]);
           setListKey(key);
           setHasFailed(true);
-          if (search) onError(describeError(error));
+          onError(describeError(error));
         })
         .finally(() => !isCancelled && setIsLoading(false));
     }, search ? SEARCH_DELAY_MS : 0);
