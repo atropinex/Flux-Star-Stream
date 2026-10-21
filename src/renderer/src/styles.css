@@ -101,14 +101,14 @@ button { font: inherit; color: inherit; }
   transform: translateY(-24px) scale(.97); transform-origin: top center;
   transition: opacity .18s ease, transform .28s cubic-bezier(.2,.8,.2,1), visibility .18s;
 }
-.library-explorer.expanded .preview,
+.library-explorer:hover .preview,
 .library-explorer:focus-within .preview {
   opacity: 1; visibility: visible; pointer-events: auto;
   transform: translateY(0) scale(1);
 }
-.library-explorer.expanded .preview .banner-row { height: 136px; }
-.library-explorer.expanded .preview .banner-row .card { --h: 118px; }
-.library-explorer.expanded .preview .info { padding-bottom: 2px; }
+.library-explorer .preview .banner-row { height: 136px; }
+.library-explorer .preview .banner-row .card { --h: 118px; }
+.library-explorer .preview .info { padding-bottom: 2px; }
 .playlist-caption { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 0 2px; font-size: 12px; letter-spacing: .04em; color: var(--dim); }
 
 .info { flex: none; padding: 2px 24px 8px; text-align: center; }
@@ -268,14 +268,6 @@ button { font: inherit; color: inherit; }
   transition: opacity .5s ease calc(var(--i) * 50ms), transform .65s cubic-bezier(.2,.8,.2,1) calc(var(--i) * 50ms);
 }
 
-/* The playlist song list only appears while the library is hovered or keyboard-focused. */
-.shown .library-explorer:not(.expanded) .preview:not(:focus-within) {
-  opacity: 0; visibility: hidden; pointer-events: none;
-  transform: translateY(-24px) scale(.97);
-}
-.shown .library-explorer.expanded .preview {
-  transition: opacity .18s ease, transform .28s cubic-bezier(.2,.8,.2,1), visibility .18s;
-}
 
 /* ---------- small animations ---------- */
 .fade-in { animation: fadeUp .4s cubic-bezier(.2,.8,.2,1) both; }
