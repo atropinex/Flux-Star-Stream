@@ -38,7 +38,6 @@ export default function App() {
   const theme = useTheme(settings?.theme, isVisible);
   const [query, setQuery] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isLibraryHovered, setIsLibraryHovered] = useState(false);
   const [dialog, setDialog] = useState<DialogState>(null);
 
   const library = usePlaylists(isLoggedIn, toast.show);
@@ -132,11 +131,7 @@ export default function App() {
       <div className="panel">
         <Header query={query} onQueryChange={setQuery} onOpenSettings={() => setIsSettingsOpen(true)} />
 
-        <div
-          className={`library-explorer${isLibraryHovered ? ' expanded' : ''}`}
-          onMouseEnter={() => setIsLibraryHovered(true)}
-          onMouseLeave={() => setIsLibraryHovered(false)}
-        >
+        <div className="library-explorer">
           <PlaylistRow
             playlists={library.playlists}
             selectedIndex={library.selectedIndex}
