@@ -28,8 +28,12 @@ function nextPage(page: Page<unknown> | null): string | null {
 /** Loads the user's playlists, following Spotify's pages until we have enough. */
 export async function fetchPlaylists(): Promise<Playlist[]> {
   const playlists: Playlist[] = [];
-  const clientPlaylists = await bridge('libraryPlaylists') as Playlist[] | null;
-  if (clientPlaylists?.length) return clientPlaylists.slice(0, MAX_PLAYLISTS);
+  try {
+    const clientPlaylists = await bridge('libraryPlaylists') as Playlist[] | null;
+    if (clientPlaylists?.length) return clientPlaylists.slice(0, MAX_PLAYLISTS);
+  } catch (error) {
+    console.warn('[Star Stream] Spicetify playlist command unavailable; trying Web API.', error);
+  }
 
   let url: string | null = '/me/playlists?limit=50';
 
@@ -46,8 +50,12 @@ export async function fetchPlaylists(): Promise<Playlist[]> {
 /** Loads the songs of one playlist. Spotify only allows this for playlists you own or collaborate on. */
 export async function fetchPlaylistTracks(playlistId: string): Promise<Track[]> {
   const tracks: Track[] = [];
-  const clientTracks = await bridge('playlistTracks', { id: playlistId }) as Track[] | null;
-  if (clientTracks) return clientTracks.slice(0, MAX_TRACKS);
+  try {
+    const clientTracks = await bridge('playlistTracks', { id: playlistId }) as Track[] | null;
+    if (clientTracks?.length) return clientTracks.slice(0, MAX_TRACKS);
+  } catch (error) {
+    console.warn('[Star Stream] Spicetify playlist-track command unavailable; trying Web API.', error);
+  }
 
   let url: string | null = `/playlists/${playlistId}/items?limit=50`;
 
@@ -65,8 +73,12 @@ export async function fetchPlaylistTracks(playlistId: string): Promise<Track[]> 
 }
 
 export async function searchTracks(query: string): Promise<Track[]> {
-  const clientTracks = await bridge('searchTracks', { query, limit: SEARCH_LIMIT }) as Track[] | null;
-  if (clientTracks) return clientTracks;
+  try {
+    const clientTracks = await bridge('searchTracks', { query, limit: SEARCH_LIMIT }) as Track[] | null;
+    if (clientTracks?.length) return clientTracks;
+  } catch (error) {
+    console.warn('[Star Stream] Spicetify search command unavailable; trying Web API.', error);
+  }
   const data = await spotifyRequest<{ tracks?: Page<Track>; data?: { tracks?: Page<Track> } }>(
     `/search?q=${encodeURIComponent(query)}&type=track&limit=${SEARCH_LIMIT}`
   );
