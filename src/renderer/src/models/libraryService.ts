@@ -1,5 +1,5 @@
 import type { Playlist, Track } from './types';
-import { spotifyRequest } from './spotifyApi';
+import { bridge, spotifyRequest } from './spotifyApi';
 
 const MAX_PLAYLISTS = 200;
 const MAX_TRACKS = 100;
@@ -28,6 +28,9 @@ function nextPage(page: Page<unknown> | null): string | null {
 /** Loads the user's playlists, following Spotify's pages until we have enough. */
 export async function fetchPlaylists(): Promise<Playlist[]> {
   const playlists: Playlist[] = [];
+  const clientPlaylists = await bridge('libraryPlaylists') as Playlist[] | null;
+  if (clientPlaylists?.length) return clientPlaylists.slice(0, MAX_PLAYLISTS);
+
   let url: string | null = '/me/playlists?limit=50';
 
   while (url && playlists.length < MAX_PLAYLISTS) {
@@ -43,6 +46,9 @@ export async function fetchPlaylists(): Promise<Playlist[]> {
 /** Loads the songs of one playlist. Spotify only allows this for playlists you own or collaborate on. */
 export async function fetchPlaylistTracks(playlistId: string): Promise<Track[]> {
   const tracks: Track[] = [];
+  const clientTracks = await bridge('playlistTracks', { id: playlistId }) as Track[] | null;
+  if (clientTracks) return clientTracks.slice(0, MAX_TRACKS);
+
   let url: string | null = `/playlists/${playlistId}/items?limit=50`;
 
   while (url && tracks.length < MAX_TRACKS) {
@@ -59,6 +65,8 @@ export async function fetchPlaylistTracks(playlistId: string): Promise<Track[]> 
 }
 
 export async function searchTracks(query: string): Promise<Track[]> {
+  const clientTracks = await bridge('searchTracks', { query, limit: SEARCH_LIMIT }) as Track[] | null;
+  if (clientTracks) return clientTracks;
   const data = await spotifyRequest<{ tracks?: Page<Track>; data?: { tracks?: Page<Track> } }>(
     `/search?q=${encodeURIComponent(query)}&type=track&limit=${SEARCH_LIMIT}`
   );
