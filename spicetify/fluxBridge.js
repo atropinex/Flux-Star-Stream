@@ -163,20 +163,21 @@
     // Use Spotify's in-client APIs for browsing; the public Web API endpoints can be
     // restricted or changed independently of the player in newer Spotify builds.
     async libraryPlaylists() {
-      const root = await Spicetify.Platform.RootlistAPI.getContents();
-      const rows = root.items || root.rows || [];
+      const root = await Spicetify.CosmosAsync.get('sp://core-playlist/v1/rootlist');
+      const rows = root.rows || root.items || [];
       const playlists = [];
       const seen = new Set();
       const visit = (items) => {
         for (const item of items || []) {
           if (item.type === 'folder' || item.items) visit(item.items || item.children || []);
           const uri = item.uri || item.playlistUri;
-          if ((item.type === 'playlist' || (uri && uri.startsWith('spotify:playlist:'))) && uri && !seen.has(uri)) {
+          if (item.type === 'playlist' && uri && uri.startsWith('spotify:playlist:') && !seen.has(uri)) {
             seen.add(uri);
             const id = uri.split(':').pop();
+            const image = item.image || item.images?.[0]?.url;
             playlists.push({
               id, uri, name: item.name || item.title || 'Untitled playlist',
-              images: item.images || (item.image ? [{ url: item.image }] : []),
+              images: image ? [{ url: image }] : (item.images || []),
               items: { total: item.totalLength || item.trackCount || 0 },
               owner: item.owner || undefined,
               collaborative: Boolean(item.collaborative)
