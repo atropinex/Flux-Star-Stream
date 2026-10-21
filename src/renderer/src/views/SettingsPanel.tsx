@@ -12,13 +12,13 @@ interface Props {
   onUpdate: (changes: UpdatableSettings) => void;
   onReloadThemes: () => void;
   onError: (message: string) => void;
+  onLogout: () => void;
   onClose: () => void;
 }
 
-export function SettingsPanel({ settings, themes, themeErrors, onShortcut, onUpdate, onReloadThemes, onError, onClose }: Props) {
+export function SettingsPanel({ settings, themes, themeErrors, onShortcut, onUpdate, onReloadThemes, onError, onLogout, onClose }: Props) {
   const [isRecording, setIsRecording] = useState(false);
 
-  // While recording, the next key combination becomes the new keybind.
   useEffect(() => {
     if (!isRecording) return;
 
@@ -28,7 +28,7 @@ export function SettingsPanel({ settings, themes, themeErrors, onShortcut, onUpd
       if (event.key === 'Escape') return setIsRecording(false);
 
       const accelerator = toAccelerator(event);
-      if (!accelerator) return; // keep waiting for a full combination
+      if (!accelerator) return;
       setIsRecording(false);
       onShortcut(accelerator).then((isAccepted) => {
         if (!isAccepted) onError('That keybind is taken by another app. Try a different one.');
@@ -74,6 +74,7 @@ export function SettingsPanel({ settings, themes, themeErrors, onShortcut, onUpd
             Minimize it when the overlay opens
             <input type="checkbox" checked={settings.minimizeSpotify} onChange={(event) => onUpdate({ minimizeSpotify: event.target.checked })} />
           </label>
+          <button className="pill" onClick={onLogout}>Disconnect Spotify account</button>
         </section>
       </aside>
     </div>
