@@ -268,6 +268,15 @@ button { font: inherit; color: inherit; }
   transition: opacity .5s ease calc(var(--i) * 50ms), transform .65s cubic-bezier(.2,.8,.2,1) calc(var(--i) * 50ms);
 }
 
+/* The playlist song list only appears while the library is hovered or keyboard-focused. */
+.shown .library-explorer:not(.expanded) .preview:not(:focus-within) {
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transform: translateY(-24px) scale(.97);
+}
+.shown .library-explorer.expanded .preview {
+  transition: opacity .18s ease, transform .28s cubic-bezier(.2,.8,.2,1), visibility .18s;
+}
+
 /* ---------- small animations ---------- */
 .fade-in { animation: fadeUp .4s cubic-bezier(.2,.8,.2,1) both; }
 .pop { display: grid; animation: popIn .22s cubic-bezier(.2,.8,.2,1) both; }
