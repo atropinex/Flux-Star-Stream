@@ -188,6 +188,7 @@ export default function App() {
             onUpdate={updateSettings}
             onReloadThemes={theme.reload}
             onError={toast.show}
+            onLogout={auth.logout}
             onClose={() => setIsSettingsOpen(false)}
           />
         )}
@@ -213,10 +214,7 @@ export default function App() {
         {auth.status === 'logged-out' && (
           <LoginScreen
             isConfigured={auth.isConfigured}
-            canChangeClientId={auth.canChangeClientId}
             onLogin={auth.login}
-            onSaveClientId={auth.saveClientId}
-            onChangeClientId={auth.changeClientId}
           />
         )}
         <Toast message={toast.message} isVisible={toast.isVisible} />
