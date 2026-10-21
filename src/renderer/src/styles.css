@@ -94,17 +94,18 @@ button { font: inherit; color: inherit; }
 .library-explorer .playlists { position: relative; z-index: 2; flex: none; }
 .library-explorer .preview {
   position: absolute; top: calc(100% - 6px); left: 0; right: 0; z-index: 1;
-  padding: 12px 0 10px; border: 1px solid var(--line); border-top: 0;
-  border-radius: 0 0 14px 14px; background: rgba(16,24,28,.97);
-  box-shadow: 0 18px 32px rgba(0,0,0,.38);
+  padding: 12px 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none;
   opacity: 0; visibility: hidden; pointer-events: none;
-  transform: translateY(-24px) scale(.97); transform-origin: top center;
-  transition: opacity .18s ease, transform .28s cubic-bezier(.2,.8,.2,1), visibility .18s;
+  clip-path: inset(0 42% 0 42% round 4px);
+  transform: translateY(-24px) scaleY(.2); transform-origin: top center;
+  transition: opacity .2s ease, clip-path .38s cubic-bezier(.2,.8,.2,1), transform .38s cubic-bezier(.2,.8,.2,1), visibility 0s linear .38s;
 }
-.library-explorer:hover .preview,
-.library-explorer:focus-within .preview {
+.backdrop.shown .library-explorer:hover .preview,
+.backdrop.shown .library-explorer:focus-within .preview {
   opacity: 1; visibility: visible; pointer-events: auto;
-  transform: translateY(0) scale(1);
+  clip-path: inset(0 0 0 0 round 0);
+  transform: translateY(0) scaleY(1);
+  transition-delay: 0s;
 }
 .library-explorer .preview .banner-row { height: 136px; }
 .library-explorer .preview .banner-row .card { --h: 118px; }
@@ -263,10 +264,13 @@ button { font: inherit; color: inherit; }
 }
 .header { --i: 0; } .playlists { --i: 1; } .preview { --i: 2; } .playing-row { --i: 3; } .player { --i: 4; }
 
-.shown .header, .shown .playlists, .shown .preview, .shown .playing-row, .shown .player {
+.shown .header, .shown .playlists, .shown .playing-row, .shown .player {
   opacity: 1; transform: none;
   transition: opacity .5s ease calc(var(--i) * 50ms), transform .65s cubic-bezier(.2,.8,.2,1) calc(var(--i) * 50ms);
 }
+
+/* The playlist preview has its own hover animation, separate from overlay entrance. */
+.shown .preview { opacity: 0; }
 
 
 /* ---------- small animations ---------- */
@@ -284,7 +288,7 @@ button { font: inherit; color: inherit; }
 /* people who prefer less motion get no animations */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
-  .library-explorer .preview { transform: none; }
+  .library-explorer .preview { clip-path: none; transform: none; }
 }
 .empty-hint { position: absolute; inset: 0; display: grid; place-items: center; font-size: 14px; color: var(--dim); pointer-events: none; }
 
