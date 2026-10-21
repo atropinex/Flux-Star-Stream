@@ -1,35 +1,33 @@
 export interface AppSettings {
-  shortcut: string;         // Electron accelerator, e.g. "CommandOrControl+Alt+M"
-  minimizeSpotify: boolean; // minimize the Spotify app when the overlay opens
-  theme: string;            // id of a theme file (its name without .yaml)
+  shortcut: string;
+  minimizeSpotify: boolean;
+  theme: string;
 }
 
-/** The settings that can change without re-registering the keybind. */
 export type UpdatableSettings = Partial<Omit<AppSettings, 'shortcut'>>;
 
-/** The colors a theme file may set. */
 export const THEME_COLORS = ['ink', 'dim', 'accent', 'surface', 'line', 'deep'] as const;
 export type ThemeColor = (typeof THEME_COLORS)[number];
 
 export interface ThemeLayer {
   type: 'gradient' | 'image';
-  value: string;   // a CSS gradient, or an image (local files are already converted to data URLs)
-  opacity: number; // 0 to 1
-  blur: number;    // pixels
-  size: string;    // CSS background-size, for images
+  value: string;
+  opacity: number;
+  blur: number;
+  size: string;
 }
 
 export interface Theme {
   id: string;
   name: string;
   colors: Partial<Record<ThemeColor, string>>;
-  dimLayer: string | null; // the dark layer over the screen
-  layers: ThemeLayer[];    // extra layers drawn on top of it
+  dimLayer: string | null;
+  layers: ThemeLayer[];
 }
 
 export interface ThemeList {
   themes: Theme[];
-  errors: string[]; // problems found in theme files, shown in the settings
+  errors: string[];
 }
 
 /** Everything the page is allowed to ask the main process to do. */
@@ -38,14 +36,15 @@ export interface ElectronApi {
   hasSession: () => Promise<boolean>;
   getToken: () => Promise<string | null>;
   login: () => Promise<void>;
+  logout: () => Promise<void>;
   setClientId: (clientId: string) => Promise<void>;
-  usesBuiltInClientId: () => Promise<boolean>; // true when the app ships with its own Client ID
+  usesBuiltInClientId: () => Promise<boolean>;
   getSettings: () => Promise<AppSettings>;
   updateSettings: (changes: UpdatableSettings) => Promise<void>;
-  setShortcut: (accelerator: string) => Promise<boolean>; // false if another app already uses it
+  setShortcut: (accelerator: string) => Promise<boolean>;
   listThemes: () => Promise<ThemeList>;
   openThemesFolder: () => void;
   openInSpotify: (uri: string) => void;
   hideOverlay: () => void;
-  onVisibilityChange: (callback: (isVisible: boolean) => void) => () => void; // returns "stop listening"
+  onVisibilityChange: (callback: (isVisible: boolean) => void) => () => void;
 }
