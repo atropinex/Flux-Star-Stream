@@ -67,6 +67,19 @@
     };
   }
 
+  function getCanvasUrl(item) {
+    const candidates = [item?.canvas, item?.canvasUrl, item?.canvas_url, item?.metadata?.canvas,
+      item?.metadata?.canvas_url, item?.metadata?.canvasUrl, item?.metadata?.video_url,
+      item?.metadata?.videoUrl, item?.album?.canvas];
+    for (const candidate of candidates) {
+      const value = typeof candidate === 'string' ? candidate :
+        candidate?.url || candidate?.video_url || candidate?.videoUrl || candidate?.src;
+      if (typeof value === 'string' && /^https?:\/\//i.test(value) &&
+          (/(canvas|video|\.mp4|\.webm)/i.test(value))) return value;
+    }
+    return null;
+  }
+
   function getState() {
     const data = player().data;
     const item = data && (data.item || data.track);
@@ -79,6 +92,7 @@
 
     return {
       track: mapTrack(item),
+      canvasUrl: getCanvasUrl(item),
       isPlaying: Boolean(isPlaying),
       isShuffled: Boolean(player().getShuffle()),
       repeatState: repeat === 2 ? 'track' : repeat === 1 ? 'context' : 'off',
