@@ -23,6 +23,7 @@ import { PlaylistRow } from './views/PlaylistRow';
 import { SettingsPanel } from './views/SettingsPanel';
 import { ThemeLayers } from './views/ThemeLayers';
 import { Toast } from './views/Toast';
+import './App.css';
 
 // Which dialog is open. A song can travel along, so "New playlist" can start with it.
 type DialogState = { kind: 'create'; track: Track | null } | { kind: 'add'; track: Track } | null;
