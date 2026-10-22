@@ -1,0 +1,4 @@
+/* ---------- theme layers ---------- */
+.theme-layers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.theme-layer { position: absolute; animation: fadeIn .9s ease both; }
+
