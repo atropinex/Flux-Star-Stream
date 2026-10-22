@@ -1,0 +1,3 @@
+/* Keep the top playlist row's layout box stable while its cards scroll/animate. */
+.playlists { flex: none; height: 128px; overflow: hidden; contain: layout; }
+.playlist-caption { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 0 2px; font-size: 12px; letter-spacing: .04em; color: var(--dim); }
