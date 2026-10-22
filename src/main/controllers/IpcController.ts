@@ -10,6 +10,10 @@ import type { OverlayController } from './OverlayController';
 function cleanSettings(changes: UpdatableSettings): UpdatableSettings {
   const clean: UpdatableSettings = {};
   if (typeof changes.minimizeSpotify === 'boolean') clean.minimizeSpotify = changes.minimizeSpotify;
+  if (typeof changes.crossfadeEnabled === 'boolean') clean.crossfadeEnabled = changes.crossfadeEnabled;
+  if (typeof changes.crossfadeSeconds === 'number' && Number.isFinite(changes.crossfadeSeconds)) {
+    clean.crossfadeSeconds = Math.max(0, Math.min(12, Math.round(changes.crossfadeSeconds)));
+  }
   if (typeof changes.theme === 'string') clean.theme = changes.theme;
   return clean;
 }
