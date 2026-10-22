@@ -308,6 +308,14 @@
           const result = await Spicetify.Search.search(query, ['track'], limit, 0);
           const tracks = collectEntries(result).map(normalizeTrack).filter(Boolean);
           if (tracks.length) return tracks.slice(0, limit);
+          console.warn('[fluxBridge] Search.search returned an unrecognized result shape', {
+            query,
+            isArray: Array.isArray(result),
+            resultLength: Array.isArray(result) ? result.length : undefined,
+            resultKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
+            firstItem: Array.isArray(result) ? result[0] : undefined,
+            firstItemKeys: Array.isArray(result) && result[0] && typeof result[0] === 'object' ? Object.keys(result[0]) : undefined
+          });
         } catch (error) {
           console.warn('[fluxBridge] client search failed; trying Spotify API', error);
         }
@@ -321,7 +329,10 @@
         if (tracks.length) return tracks.slice(0, limit);
         console.warn('[fluxBridge] Spotify API search returned no recognizable tracks', {
           query,
-          resultKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result
+          resultKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
+          apiCode: result?.code,
+          apiError: result?.error,
+          apiMessage: result?.message
         });
         return [];
       } catch (error) {
