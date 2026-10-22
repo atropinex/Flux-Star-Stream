@@ -37,6 +37,11 @@
 .banner-row.small .card-initial { font-size: 20px; }
 
 
+/* Keep card entrance animations from shifting cards vertically. */
+.banner-row.small .card,
+.banner-row.medium .card,
+.banner-row.large .card { animation-name: songCardIn; }
+
 /* Each carousel keeps a stable viewport regardless of its contents. */
 .banner-row { flex: none; overflow: hidden; }
 .banner-row.small { height: 112px; }
