@@ -362,8 +362,7 @@
           name,
           type: 'track',
           is_local: Boolean(item.is_local || item.isLocal),
-          duration_ms: item.duration_ms || item.duration?.milliseconds ||
-            item.duration?.totalMilliseconds || item.duration?.totalMilliseconds || 0,
+          duration_ms: item.duration_ms || item.duration?.milliseconds || item.duration?.totalMilliseconds || 0,
           artists,
           album: { images: normalizeImages(image) }
         };
@@ -425,6 +424,7 @@
               console.info('[fluxBridge] GraphQL search succeeded', { query, resultCount: tracks.length });
               return tracks.slice(0, limit);
             }
+            searchFailures.push('searchModalResults returned no normalizable tracks');
             console.warn('[fluxBridge] GraphQL search returned no recognizable tracks', {
               query,
               topLevelKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
@@ -492,6 +492,7 @@
             });
             return tracks.slice(0, limit);
           }
+          searchFailures.push(`searchDesktop returned ${trackItems.length} track item(s), but none could be normalized`);
           console.warn('[fluxBridge] searchDesktop GraphQL returned no recognizable tracks', {
             query,
             payloadKeys: payload && typeof payload === 'object' ? Object.keys(payload) : typeof payload,
@@ -519,6 +520,7 @@
               .map((track) => [track.uri, track])
           ).values()];
           if (tracks.length) return tracks.slice(0, limit);
+          searchFailures.push('Spicetify.Search.search returned no normalizable tracks');
           console.warn('[fluxBridge] Search.search returned an unrecognized result shape', {
             query,
             isArray: Array.isArray(result),
