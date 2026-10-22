@@ -282,7 +282,7 @@
         const id = rawId || (typeof rawUri === 'string' ? rawUri.split(':').pop().split('?')[0] : '');
         const uri = typeof rawUri === 'string' && rawUri.startsWith('spotify:track:')
           ? rawUri.split('?')[0]
-          : id ? \`spotify:track:\${id}\` : '';
+          : id ? `spotify:track:${id}` : '';
         const rawName = item?.name ?? item?.title ?? meta.title;
         const name = typeof rawName === 'string' ? rawName : rawName?.text || '';
         if (!uri || uri === 'spotify:track:' || !name) return null;
@@ -420,22 +420,34 @@
   }
 
   function connect() {
+    let connection;
     try {
-      socket = new WebSocket(ADDRESS);
+      console.info('[fluxBridge] Connecting to Star Stream bridge:', ADDRESS);
+      connection = new window.WebSocket(ADDRESS);
+      socket = connection;
     } catch (error) {
+      console.error('[fluxBridge] Could not create the bridge WebSocket:', error);
       scheduleReconnect();
       return;
     }
-    socket.onopen = () => socket.send(JSON.stringify({ type: 'hello', name: 'fluxBridge', version: 1 }));
-    socket.onmessage = handleMessage;
-    socket.onerror = () => {
-      try {
-        socket.close();
-      } catch (error) {
-        /* already closed */
-      }
+
+    connection.onopen = () => {
+      console.info('[fluxBridge] Connected to Star Stream bridge.');
+      connection.send(JSON.stringify({ type: 'hello', name: 'fluxBridge', version: 1 }));
     };
-    socket.onclose = scheduleReconnect; // the overlay may not be running yet, or was restarted
+    connection.onmessage = handleMessage;
+    connection.onerror = (event) => {
+      console.error('[fluxBridge] WebSocket connection error. Check that Star Stream is running and listening on 127.0.0.1:52701.', event);
+    };
+    connection.onclose = (event) => {
+      console.warn('[fluxBridge] WebSocket closed:', {
+        code: event.code,
+        reason: event.reason || '(no reason provided)',
+        wasClean: event.wasClean
+      });
+      if (socket === connection) socket = null;
+      scheduleReconnect();
+    };
   }
 
   connect();
