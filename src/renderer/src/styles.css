@@ -262,7 +262,7 @@ button { font: inherit; color: inherit; }
 .fade-in { animation: fadeUp .4s cubic-bezier(.2,.8,.2,1) both; }
 .pop { display: grid; animation: popIn .22s cubic-bezier(.2,.8,.2,1) both; }
 
-@keyframes cardIn { from { opacity: 0; translate: 0 30px; scale: .88; } }
+@keyframes cardIn { from { opacity: 0; scale: .88; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } }
 @keyframes fadeIn { from { opacity: 0; } }
 @keyframes popIn { from { opacity: 0; transform: scale(.6); } }
