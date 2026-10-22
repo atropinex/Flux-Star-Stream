@@ -76,13 +76,25 @@ export async function searchTracks(query: string): Promise<Track[]> {
   try {
     const clientTracks = await bridge('searchTracks', { query, limit: SEARCH_LIMIT }) as Track[] | null;
     if (clientTracks?.length) return clientTracks;
+    console.warn('[Star Stream] Spotify client search returned no normalized tracks; trying Web API fallback.', {
+      query,
+      responseType: Array.isArray(clientTracks) ? 'array' : typeof clientTracks
+    });
   } catch (error) {
     console.warn('[Star Stream] Spicetify search command unavailable; trying Web API.', error);
   }
+
   const data = await spotifyRequest<{ tracks?: Page<Track>; data?: { tracks?: Page<Track> } }>(
     `/search?q=${encodeURIComponent(query)}&type=track&limit=${SEARCH_LIMIT}`
   );
-  return data?.tracks?.items ?? data?.tracks?.data?.items ?? data?.data?.tracks?.items ?? [];
+  const tracks = data?.tracks?.items ?? data?.tracks?.data?.items ?? data?.data?.tracks?.items ?? [];
+  if (!tracks.length) {
+    console.warn('[Star Stream] Spotify Web API search returned no tracks.', {
+      query,
+      responseKeys: data && typeof data === 'object' ? Object.keys(data) : typeof data
+    });
+  }
+  return tracks;
 }
 
 /** The id of the logged-in user, used to know which playlists can be edited. */
