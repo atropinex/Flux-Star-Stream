@@ -293,7 +293,7 @@
           if (typeof value !== 'string') return '';
           const spotifyUri = value.match(/spotify:track:([A-Za-z0-9]+)/);
           if (spotifyUri) return `spotify:track:${spotifyUri[1]}`;
-          const webUri = value.match(/open\\.spotify\\.com\\/(?:intl-[^/]+/)?track/([A-Za-z0-9]+)/);
+          const webUri = value.match(/open\\.spotify\\.com\\/(?:intl-[^\\/]+\\/)?track\\/([A-Za-z0-9]+)/);
           if (webUri) return `spotify:track:${webUri[1]}`;
           return '';
         };
