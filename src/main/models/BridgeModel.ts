@@ -2,7 +2,7 @@ import { WebSocket, WebSocketServer, type RawData } from 'ws';
 
 /** The Spicetify extension connects to this port. It is written at the top of fluxBridge.js as well. */
 export const BRIDGE_PORT = 52701;
-export const BRIDGE_BUILD = 'search-results-v3';
+export const BRIDGE_BUILD = 'search-results-v4';
 
 export class BridgeError extends Error {
   constructor(message: string, public status?: number) {
