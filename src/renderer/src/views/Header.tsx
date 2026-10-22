@@ -1,5 +1,6 @@
 import { IconButton } from './IconButton';
 import { CloseIcon, SearchIcon, SettingsIcon } from './Icons';
+import './Header.css';
 
 interface Props {
   query: string;
