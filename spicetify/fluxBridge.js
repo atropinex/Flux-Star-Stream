@@ -246,7 +246,7 @@
         const uri = item?.uri || meta.uri;
         if (!uri || !String(uri).startsWith('spotify:track:')) return null;
 
-        const rawArtists = item?.artists || meta.artists || [];
+        const rawArtists = item?.artists?.items || item?.artists || meta.artists || [];
         const artists = (Array.isArray(rawArtists) ? rawArtists : [rawArtists])
           .map((artist) => ({
             name: typeof artist === 'string'
@@ -258,7 +258,8 @@
           artists.push({ name: meta.artist_name });
         }
 
-        const image = item?.album?.images || item?.images || item?.album?.image ||
+        const image = item?.album?.images || item?.albumOfTrack?.coverArt?.sources ||
+          item?.images || item?.album?.image ||
           meta.image_xlarge_url || meta.image_large_url || meta.image_url;
         return {
           id: item?.id || uri.split(':').pop(),
@@ -266,7 +267,7 @@
           name: item?.name || item?.title || meta.title || '',
           type: 'track',
           is_local: Boolean(item?.is_local),
-          duration_ms: item?.duration_ms || item?.duration?.milliseconds || 0,
+          duration_ms: item?.duration_ms || item?.duration?.milliseconds || item?.duration?.totalMilliseconds || 0,
           artists,
           album: { images: normalizeImages(image) }
         };
