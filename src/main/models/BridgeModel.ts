@@ -87,15 +87,22 @@ export class BridgeModel {
       }, timeoutMs);
       this.pending.set(id, { command, startedAt: Date.now(), resolve, reject, timer });
       if (command === 'searchTracks') {
-        if (this.clientInfo?.build && this.clientInfo.build !== BRIDGE_BUILD) {
+        if (!this.clientInfo || this.clientInfo.build !== BRIDGE_BUILD) {
           clearTimeout(timer);
           this.pending.delete(id);
-          reject(new BridgeError(
-            `The installed Spicetify extension is outdated (build ${this.clientInfo.build}). Run the Flux Star Stream setup installer again, then fully restart Spotify.`
-          ));
+          const installedBuild = this.clientInfo?.build ?? 'unknown/older extension';
+          const error = installedBuild === 'unknown/older extension'
+            ? 'The connected Spicetify extension is an older build and does not report its version. Reinstall the latest Flux Star Stream extension and fully restart Spotify.'
+            : `The connected Spicetify extension is outdated (build ${installedBuild}; expected ${BRIDGE_BUILD}). Reinstall the latest Flux Star Stream extension and fully restart Spotify.`;
+          console.error('[bridge] Search blocked because the installed extension version is not current.', {
+            expectedBuild: BRIDGE_BUILD,
+            installedBuild,
+            action: 'Run the setup installer from the newly rebuilt Flux Star Stream app, then fully restart Spotify.'
+          });
+          reject(new BridgeError(error));
           return;
         }
-        console.info('[bridge] Sending search request to Spotify.', { id, extensionBuild: this.clientInfo?.build ?? '(not verified yet)' });
+        console.info('[bridge] Sending search request to Spotify.', { id, extensionBuild: this.clientInfo.build });
       }
       socket.send(JSON.stringify({ id, cmd: command, args }));
     });
