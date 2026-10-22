@@ -33,12 +33,16 @@ export function usePlayingTracks(playback: PlaybackState | null, playlists: Play
   }, [playlistId, contextUri, version]);
 
   const current = playback?.track;
-  const foundIndex = current ? loaded.tracks.findIndex((track) => track.id === current.id) : -1;
-  const isFullList = foundIndex >= 0;
+  const isCurrentPlaylistLoaded = Boolean(playlistId && loaded.key === playlistId && loaded.tracks.length > 0);
+  const foundIndex = current && isCurrentPlaylistLoaded
+    ? loaded.tracks.findIndex((track) => track.id === current.id)
+    : -1;
 
-  const tracks = isFullList ? loaded.tracks : current ? [current] : [];
-  const playingIndex = isFullList ? foundIndex : 0;
-  const listKey = isFullList ? loaded.key : `single:${current?.id ?? ''}`;
+  // Show the loaded playlist's song list even if Spotify's current track ID
+  // doesn't match a playlist item (for example, due to a response shape/ID mismatch).
+  const tracks = isCurrentPlaylistLoaded ? loaded.tracks : current ? [current] : [];
+  const playingIndex = foundIndex >= 0 ? foundIndex : 0;
+  const listKey = isCurrentPlaylistLoaded ? loaded.key : `single:${current?.id ?? ''}`;
 
   // Follow the playing song whenever it (or the list) changes.
   useEffect(() => setFocusIndex(playingIndex), [playingIndex, listKey]);
