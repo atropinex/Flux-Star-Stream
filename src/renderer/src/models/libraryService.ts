@@ -74,32 +74,21 @@ export async function fetchPlaylistTracks(playlistId: string): Promise<Track[]> 
 
 export async function searchTracks(query: string): Promise<Track[]> {
   try {
-    const clientTracks = await bridge('searchTracks', { query, limit: SEARCH_LIMIT }) as Track[] | null;
-    if (clientTracks?.length) return clientTracks;
-    console.warn('[Star Stream] Spotify client search returned no normalized tracks; trying Web API fallback.', {
+    const result = await bridge('searchTracks', { query, limit: SEARCH_LIMIT });
+    if (Array.isArray(result)) return result as Track[];
+
+    console.warn('[Star Stream] Spotify client search returned an unexpected response.', {
       query,
-      responseType: Array.isArray(clientTracks) ? 'array' : typeof clientTracks
+      responseType: typeof result,
+      responseKeys: result && typeof result === 'object' ? Object.keys(result) : []
     });
   } catch (error) {
-    console.warn('[Star Stream] Spicetify search command unavailable; trying Web API.', error);
+    console.error('[Star Stream] Spotify client search failed.', error);
   }
 
-  const data = await spotifyRequest<{ tracks?: Page<Track>; data?: { tracks?: Page<Track> } }>(
-    `/search?q=${encodeURIComponent(query)}&type=track&limit=${SEARCH_LIMIT}`
-  );
-  const tracks = data?.tracks?.items ?? data?.tracks?.data?.items ?? data?.data?.tracks?.items ?? [];
-  if (!tracks.length) {
-    console.warn('[Star Stream] Spotify Web API search returned no tracks.', {
-      query,
-      responseType: Array.isArray(data) ? 'array' : typeof data,
-      responseKeys: data && typeof data === 'object' ? Object.keys(data) : [],
-      apiCode: (data as { code?: unknown } | null)?.code,
-      apiError: (data as { error?: unknown } | null)?.error,
-      apiMessage: (data as { message?: unknown } | null)?.message,
-      response: data && typeof data === 'object' ? JSON.stringify(data, null, 2) : data
-    });
-  }
-  return tracks;
+  // The Spicetify bridge already tries the in-client search and its internal fallback.
+  // Avoid issuing a second Web API request here, which can trigger additional 429 responses.
+  return [];
 }
 
 /** The id of the logged-in user, used to know which playlists can be edited. */
