@@ -1,0 +1,19 @@
+/* ---------- playing row ---------- */
+.playing-row { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.preview { flex: none; }
+.row-caption { margin-bottom: 4px; text-align: center; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
+.row-caption b { font-weight: 600; color: var(--ink); }
+
+/* moving bars on the song or playlist that is playing */
+.eq { position: absolute; top: 8px; left: 8px; z-index: 2; display: flex; align-items: flex-end; gap: 2px; height: 22px; padding: 5px 6px; border-radius: 6px; background: rgba(0,0,0,.6); }
+.eq i { width: 3px; height: 100%; border-radius: 1px; background: var(--accent); transform-origin: bottom; animation: eq 1s ease-in-out infinite; }
+.eq i:nth-child(2) { animation-delay: .2s; }
+.eq i:nth-child(3) { animation-delay: .4s; }
+.paused .eq i { animation-play-state: paused; }
+.banner-row.small .eq { top: 4px; left: 4px; height: 14px; padding: 3px 4px; }
+.banner-row.small .eq i { width: 2px; }
+
+/* the list is replaced: dim the old cards while the new ones load */
+.banner-set { position: absolute; inset: 0; transform-style: preserve-3d; transition: opacity .3s ease, transform .3s ease; }
+.banner-row.loading .banner-set { opacity: .35; transform: scale(.98); }
+
