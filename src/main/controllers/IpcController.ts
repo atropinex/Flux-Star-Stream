@@ -10,6 +10,7 @@ import type { OverlayController } from './OverlayController';
 function cleanSettings(changes: UpdatableSettings): UpdatableSettings {
   const clean: UpdatableSettings = {};
   if (typeof changes.minimizeSpotify === 'boolean') clean.minimizeSpotify = changes.minimizeSpotify;
+  if (typeof changes.showCanvas === 'boolean') clean.showCanvas = changes.showCanvas;
   if (typeof changes.theme === 'string') clean.theme = changes.theme;
   return clean;
 }
