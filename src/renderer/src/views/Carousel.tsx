@@ -1,6 +1,7 @@
 import type { Track } from '../models/types';
 import { BannerRow } from './BannerRow';
 import { PlusIcon } from './Icons';
+import './Carousel.css';
 
 interface Props {
   tracks: Track[];
