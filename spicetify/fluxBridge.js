@@ -15,7 +15,7 @@
   const ADDRESS = `ws://127.0.0.1:${PORT}`;
   const RETRY_MS = 3000;
   const PLAY_CHECK_MS = 1000;
-  const BRIDGE_BUILD = 'search-results-v5';
+  const BRIDGE_BUILD = 'search-results-v6';
 
   // Spicetify loads extensions before Spotify is ready, so wait for it.
   if (!window.Spicetify || !Spicetify.Player || !Spicetify.Platform || !Spicetify.CosmosAsync) {
@@ -368,229 +368,105 @@
         };
       };
 
-      // Prefer Spotify's own authenticated GraphQL search operation. The undocumented
-      // Spicetify.Search helper is not consistently present across Spotify desktop builds,
-      // and the public Web API fallback has recently returned 429 for this app.
-      const graphQL = Spicetify.GraphQL;
-      const searchDefinition = graphQL?.Definitions?.searchModalResults;
-      if (searchDefinition && typeof graphQL.Request === 'function') {
-        try {
-          const operation = searchDefinition.definitions?.find((definition) => definition.kind === 'OperationDefinition');
-          const declaredVariables = operation?.variableDefinitions || [];
-          const variables = {};
-          let hasUnsupportedRequiredVariable = false;
-
-          const namedType = (type) => {
-            if (!type) return '';
-            if (type.name?.value) return type.name.value;
-            return namedType(type.type);
-          };
-
-          for (const definition of declaredVariables) {
-            const name = definition.variable?.name?.value;
-            if (!name) continue;
-            const normalizedName = name.toLowerCase();
-            const typeName = namedType(definition.type);
-            const required = definition.type?.kind === 'NonNullType' || JSON.stringify(definition.type || {}).includes('"kind":"NonNullType"');
-            if (/query|searchterm|searchquery|term|keywords/.test(normalizedName)) {
-              variables[name] = query;
-            } else if (/offset|startindex|start_index/.test(normalizedName)) {
-              variables[name] = 0;
-            } else if (/limit|count|pagesize|page_size|topresults|numberoftop/.test(normalizedName)) {
-              variables[name] = limit;
-            } else if (/include.*audiobook/.test(normalizedName)) {
-              variables[name] = false;
-            } else if (/include.*track/.test(normalizedName)) {
-              variables[name] = true;
-            } else if (/locale|language/.test(normalizedName)) {
-              variables[name] = graphQL.Context?.locale || 'en';
-            } else if (required) {
-              // Don't send invented values to a private query if this Spotify build changed
-              // its signature. Try the documented client helper and Web API fallback instead.
-              hasUnsupportedRequiredVariable = true;
-              console.warn('[fluxBridge] Unsupported required search GraphQL variable', { name, typeName });
+      // Spicetify v3 may not expose GraphQL.Definitions, so provide persisted
+      // operations with known hashes and the variables required by each operation.
+      // Both operations return data.searchV2.topResultsV2.itemsV2.
+      const spotifyGraphQL = Spicetify.GraphQL;
+      if (spotifyGraphQL && typeof spotifyGraphQL.Request === 'function') {
+        const searchDefinitions = [
+          {
+            name: 'searchSuggestions',
+            hash: '9fe3ad78e43a1684b3a9fabc741c5928928d4d30d7d8fd7fd193c7ebb4a544f4',
+            variables: {
+              query,
+              limit: 30,
+              numberOfTopResults: 30,
+              offset: 0,
+              includeAuthors: true,
+              includeAlbumPreReleases: true,
+              includeEpisodeContentRatingsV2: true
+            }
+          },
+          {
+            name: 'searchModalResults',
+            hash: '5c10c8121738f9a0e7c685984d237cde29812448b2f87b8b94e85fb52f645fd0',
+            variables: {
+              searchTerm: query,
+              limit: 50,
+              numberOfTopResults: Math.min(50, Math.max(limit, limit * 4)),
+              offset: 0,
+              includeAudiobooks: true,
+              includeAuthors: true,
+              includePreRelease: true,
+              includeArtistHasConcertsField: false
             }
           }
+        ];
 
-          if (!hasUnsupportedRequiredVariable && declaredVariables.length) {
-            const result = await graphQL.Request(searchDefinition, variables);
+        for (const searchDefinition of searchDefinitions) {
+          try {
+            const definition = spotifyGraphQL.Definitions?.[searchDefinition.name] || {
+              name: searchDefinition.name,
+              operation: 'query',
+              sha256Hash: searchDefinition.hash,
+              value: null
+            };
+            const result = await spotifyGraphQL.Request(definition, searchDefinition.variables);
+            const payload = result?.data || result;
+            const items = payload?.searchV2?.topResultsV2?.itemsV2 ||
+              payload?.searchV2?.tracksV2?.items ||
+              payload?.searchV2?.tracks?.items ||
+              [];
+            const entries = items.map((entry) =>
+              entry?.item?.data || entry?.data || entry?.track?.data || entry?.track || entry?.item || entry
+            );
             const tracks = [...new Map(
-              collectEntries(result)
+              [...entries, ...collectEntries(payload)]
                 .map(normalizeTrack)
                 .filter((track) => track && track.uri)
                 .map((track) => [track.uri, track])
             ).values()];
             if (tracks.length) {
-              console.info('[fluxBridge] GraphQL search succeeded', { query, resultCount: tracks.length });
+              console.info('[fluxBridge] Spotify GraphQL search succeeded', {
+                operation: searchDefinition.name,
+                query,
+                resultCount: tracks.length,
+                itemCount: items.length
+              });
               return tracks.slice(0, limit);
             }
-            searchFailures.push('searchModalResults returned no normalizable tracks');
-            console.warn('[fluxBridge] GraphQL search returned no recognizable tracks', {
-              query,
-              topLevelKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
-              resultPreview: result && typeof result === 'object'
-                ? JSON.stringify(result, null, 2)?.slice(0, 2500)
-                : String(result)
-            });
-          } else {
-            console.warn('[fluxBridge] GraphQL search definition has no supported variable signature', {
-              query,
-              variables: declaredVariables.map((item) => ({
-                name: item.variable?.name?.value,
-                type: namedType(item.type),
-                required: item.type?.kind === 'NonNullType'
-              }))
-            });
-          }
-        } catch (error) {
-          searchFailures.push(`searchModalResults: ${error?.message || String(error)}`);
-          console.warn('[fluxBridge] Native GraphQL search failed; trying other search paths.', error);
-        }
-      } else {
-        console.warn('[fluxBridge] searchModalResults GraphQL definition is unavailable in this Spotify build.');
-      }
 
-      // Spotify's persisted operation hash changes with web-player releases. Prefer the
-      // definition bundled by Spotify, try known real hashes, then discover the current
-      // hash from Spotify's own search JavaScript chunk instead of guessing one.
-      const spotifyGraphQL = Spicetify.GraphQL;
-      if (spotifyGraphQL && typeof spotifyGraphQL.Request === 'function') {
-        const queryVariables = {
-          searchTerm: query,
-          offset: 0,
-          limit,
-          numberOfTopResults: Math.min(limit, 5),
-          includeAudiobooks: false
-        };
-        const getGraphQLError = (error) => ({
-          name: error?.name,
-          message: error?.message || String(error),
-          status: error?.status || error?.statusCode,
-          code: error?.code,
-          url: error?.url || error?.request?.url
-        });
-        const getTrackItems = (payload) =>
-          payload?.searchV2?.tracksV2?.items ||
-          payload?.searchV2?.tracks?.items ||
-          payload?.search?.tracksV2?.items ||
-          payload?.search?.tracks?.items ||
-          payload?.tracksV2?.items ||
-          payload?.tracks?.items ||
-          [];
-        const parseSearchResponse = (result, source) => {
-          const payload = result?.data || result;
-          const trackItems = getTrackItems(payload);
-          const entries = trackItems.map((item) =>
-            item?.item?.data || item?.data || item?.track?.data || item?.track || item?.item || item
-          );
-          const tracks = [...new Map(
-            [...entries, ...collectEntries(payload)]
-              .map(normalizeTrack)
-              .filter((track) => track && track.uri)
-              .map((track) => [track.uri, track])
-          ).values()];
-          if (tracks.length) {
-            console.info('[fluxBridge] Spotify GraphQL search succeeded', {
-              source,
+            const detail = payload?.errors?.map((error) => error?.message || String(error)).join('; ');
+            searchFailures.push(
+              searchDefinition.name + ': no usable tracks' + (detail ? ' (' + detail + ')' : '')
+            );
+            console.warn('[fluxBridge] Spotify GraphQL search returned no usable tracks', {
+              operation: searchDefinition.name,
               query,
-              resultCount: tracks.length,
-              trackItemCount: trackItems.length
+              itemCount: items.length,
+              errors: payload?.errors,
+              payloadKeys: payload && typeof payload === 'object' ? Object.keys(payload) : typeof payload,
+              responsePreview: payload && typeof payload === 'object'
+                ? JSON.stringify(payload, null, 2)?.slice(0, 1800)
+                : String(payload)
             });
-            return tracks.slice(0, limit);
-          }
-          searchFailures.push(`${source}: no usable tracks (track items: ${trackItems.length})`);
-          console.warn('[fluxBridge] Spotify GraphQL response contained no usable tracks', {
-            source,
-            query,
-            payloadKeys: payload && typeof payload === 'object' ? Object.keys(payload) : typeof payload,
-            errors: payload?.errors,
-            trackItemCount: trackItems.length,
-            responsePreview: payload && typeof payload === 'object'
-              ? JSON.stringify(payload, null, 2)?.slice(0, 1800)
-              : String(payload)
-          });
-          return null;
-        };
-
-        const getSearchDesktopHashFromWebPlayer = async () => {
-          try {
-            const homeResponse = await fetch('https://open.spotify.com/', { headers: { accept: 'text/html' } });
-            if (!homeResponse.ok) throw new Error(`Spotify web player page returned HTTP ${homeResponse.status}`);
-            const html = await homeResponse.text();
-            const mainUrl = html.match(/https:\/\/open\.spotifycdn\.com\/cdn\/build\/web-player\/web-player\.[\w.-]+\.js/)?.[0];
-            if (!mainUrl) throw new Error('Could not find the current web-player bundle URL.');
-            const mainResponse = await fetch(mainUrl, { headers: { referer: 'https://open.spotify.com/' } });
-            if (!mainResponse.ok) throw new Error(`Spotify web-player bundle returned HTTP ${mainResponse.status}`);
-            const mainScript = await mainResponse.text();
-            const searchUrls = [...new Set(
-              [...mainScript.matchAll(/https:\/\/open\.spotifycdn\.com\/cdn\/build\/web-player\/[\w.-]*search[\w.-]*\.js/g)]
-                .map((match) => match[0])
-            )];
-            for (const url of searchUrls) {
-              const response = await fetch(url, { headers: { referer: 'https://open.spotify.com/' } });
-              if (!response.ok) continue;
-              const script = await response.text();
-              const hash = script.match(/["']searchDesktop["']\s*,\s*["']query["']\s*,\s*["']([a-f0-9]{64})["']/i)?.[1];
-              if (hash) {
-                console.info('[fluxBridge] Discovered current searchDesktop hash from Spotify web player.');
-                return hash;
-              }
-            }
-            throw new Error(`No searchDesktop hash found in ${searchUrls.length} search bundle(s).`);
           } catch (error) {
-            console.warn('[fluxBridge] Could not discover the current Spotify search hash.', getGraphQLError(error));
-            return null;
-          }
-        };
-
-        const attempts = [];
-        const bundledDefinition = spotifyGraphQL.Definitions?.searchDesktop;
-        if (bundledDefinition) attempts.push({
-          source: 'bundled searchDesktop definition',
-          definition: bundledDefinition
-        });
-        const knownHashes = [
-          'eff59fa0a3d026b88b56fddbcf4bdfa16a186b8175a5c1a358c072e053c2e5b0',
-          '21b3fe49546912ba782db5c47e9ef5a7dbd20329520ba0c7d0fcfadee671d24e',
-          '75bbf6bfcfdf85b8fc828417bfad92b7cd66bf7f556d85670f4da8292373ebec'
-        ];
-        for (const hash of knownHashes) attempts.push({
-          source: `searchDesktop hash ${hash.slice(0, 8)}`,
-          definition: { name: 'searchDesktop', operation: 'query', sha256Hash: hash, value: null }
-        });
-
-        const triedHashes = new Set();
-        const tryDefinition = async (attempt) => {
-          try {
-            const result = await spotifyGraphQL.Request(attempt.definition, queryVariables);
-            return parseSearchResponse(result, attempt.source);
-          } catch (error) {
-            const detail = getGraphQLError(error);
-            searchFailures.push(`${attempt.source}: ${detail.status ? `HTTP ${detail.status} ` : ''}${detail.message}`);
-            console.warn('[fluxBridge] Spotify GraphQL request failed.', {
-              source: attempt.source,
+            const detail = {
+              name: error?.name,
+              message: error?.message || String(error),
+              status: error?.status || error?.statusCode || error?.response?.status,
+              code: error?.code
+            };
+            searchFailures.push(
+              searchDefinition.name + ': ' +
+              (detail.status ? 'HTTP ' + detail.status + ' ' : '') + detail.message
+            );
+            console.warn('[fluxBridge] Spotify GraphQL request failed', {
+              operation: searchDefinition.name,
               query,
               error: detail
             });
-            return null;
           }
-        };
-
-        for (const attempt of attempts) {
-          const hash = attempt.definition?.sha256Hash;
-          if (hash && triedHashes.has(hash)) continue;
-          if (hash) triedHashes.add(hash);
-          const tracks = await tryDefinition(attempt);
-          if (tracks?.length) return tracks;
-        }
-
-        const discoveredHash = await getSearchDesktopHashFromWebPlayer();
-        if (discoveredHash && !triedHashes.has(discoveredHash)) {
-          const tracks = await tryDefinition({
-            source: `discovered searchDesktop hash ${discoveredHash.slice(0, 8)}`,
-            definition: { name: 'searchDesktop', operation: 'query', sha256Hash: discoveredHash, value: null }
-          });
-          if (tracks?.length) return tracks;
         }
       }
 
@@ -645,8 +521,8 @@
             ? JSON.stringify(result, null, 2)?.slice(0, 4000)
             : String(result)
         });
-        if (apiError) throw new Error(`Spotify search failed: ${result.message || result.error || result.code}. ${searchFailures.join(' | ')}`);
-        throw new Error(`Spotify search returned no usable track results. ${searchFailures.join(' | ')}`);
+        if (apiError) throw new Error(`Spotify search failed: ${result.message || result.error || result.code}`);
+        throw new Error('Spotify search returned no usable track results.');
       } catch (error) {
         const message = error?.message || String(error);
         console.error('[fluxBridge] Spotify API search failed', { query, error, earlierFailures: searchFailures });
