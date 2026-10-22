@@ -242,39 +242,47 @@
 
       // Spotify changes the shape of search payloads between desktop versions.
       // Walk common wrappers instead of assuming every result is in tracks.items.
-      const collectEntries = (value, depth = 0, found = []) => {
-        if (!value || depth > 7) return found;
+      const collectEntries = (value, depth = 0, found = [], seen = new Set()) => {
+        if (!value || depth > 8) return found;
         if (Array.isArray(value)) {
-          for (const item of value) collectEntries(item, depth + 1, found);
+          for (const item of value) collectEntries(item, depth + 1, found, seen);
           return found;
         }
-        if (typeof value !== 'object') return found;
+        if (typeof value !== 'object' || seen.has(value)) return found;
+        seen.add(value);
 
-        const uri = value.uri || value.link?.uri || value.metadata?.uri;
-        const id = value.id || value.uid || value.metadata?.id;
+        const uri = value.uri || value.link?.uri || value.metadata?.uri || value.data?.uri;
+        const id = value.id || value.uid || value.gid || value.trackId || value.metadata?.id;
+        const name = value.name || value.title || value.metadata?.title || value.data?.name || value.data?.title;
         const looksLikeTrack = (typeof uri === 'string' && (uri.startsWith('spotify:track:') || /open\.spotify\.com\/track\//.test(uri))) ||
-          (typeof id === 'string' && (value.name || value.title || value.metadata?.title));
-        if (looksLikeTrack) {
-          found.push(value);
-          return found;
-        }
+          (typeof id === 'string' && name) ||
+          (value.type === 'track' && name);
+        if (looksLikeTrack) found.push(value);
 
-        for (const key of ['tracks', 'items', 'results', 'data', 'track', 'item', 'content', 'contents', 'entities']) {
-          if (value[key] != null) collectEntries(value[key], depth + 1, found);
+        // Spotify changes the names and nesting of search-result fields between client versions.
+        // Walk nested objects instead of relying on a fixed list of wrapper keys.
+        for (const child of Object.values(value)) {
+          if (child && typeof child === 'object') collectEntries(child, depth + 1, found, seen);
         }
         return found;
       };
 
       const normalizeTrack = (entry) => {
-        const item = entry?.track || entry?.item || entry?.data?.track || entry?.data?.item || entry?.data || entry;
+        let item = entry;
+        for (let depth = 0; depth < 6; depth++) {
+          const nested = item?.track || item?.item || item?.data?.track || item?.data?.item ||
+            item?.data || item?.content || item?.entity;
+          if (!nested || nested === item || typeof nested !== 'object') break;
+          item = nested;
+        }
         const meta = item?.metadata || {};
-        const rawUri = item?.uri || meta.uri || item?.link?.uri;
-        const rawId = item?.id || item?.uid || meta.id ||
+        const rawUri = item?.uri || meta.uri || item?.link?.uri || item?.data?.uri;
+        const rawId = item?.id || item?.uid || item?.gid || item?.trackId || meta.id ||
           (typeof rawUri === 'string' ? rawUri.match(/(?:spotify:track:|open\.spotify\.com\/track\/)([A-Za-z0-9]+)/)?.[1] : '');
-        const id = rawId || (typeof item?.uri === 'string' ? item.uri.split(':').pop().split('?')[0] : '');
+        const id = rawId || (typeof rawUri === 'string' ? rawUri.split(':').pop().split('?')[0] : '');
         const uri = typeof rawUri === 'string' && rawUri.startsWith('spotify:track:')
           ? rawUri.split('?')[0]
-          : id ? `spotify:track:${id}` : '';
+          : id ? \`spotify:track:\${id}\` : '';
         const rawName = item?.name ?? item?.title ?? meta.title;
         const name = typeof rawName === 'string' ? rawName : rawName?.text || '';
         if (!uri || uri === 'spotify:track:' || !name) return null;
