@@ -239,36 +239,62 @@
       if (!query) return [];
 
       const limit = Math.max(1, Math.min(50, Number(args.limit) || 10));
+
+      // Spotify changes the shape of search payloads between desktop versions.
+      // Walk common wrappers instead of assuming every result is in tracks.items.
+      const collectEntries = (value, depth = 0, found = []) => {
+        if (!value || depth > 7) return found;
+        if (Array.isArray(value)) {
+          for (const item of value) collectEntries(item, depth + 1, found);
+          return found;
+        }
+        if (typeof value !== 'object') return found;
+
+        const uri = value.uri || value.link?.uri || value.metadata?.uri;
+        const id = value.id || value.uid || value.metadata?.id;
+        const looksLikeTrack = (typeof uri === 'string' && (uri.startsWith('spotify:track:') || /open\.spotify\.com\/track\//.test(uri))) ||
+          (typeof id === 'string' && (value.name || value.title || value.metadata?.title));
+        if (looksLikeTrack) {
+          found.push(value);
+          return found;
+        }
+
+        for (const key of ['tracks', 'items', 'results', 'data', 'track', 'item', 'content', 'contents', 'entities']) {
+          if (value[key] != null) collectEntries(value[key], depth + 1, found);
+        }
+        return found;
+      };
+
       const normalizeTrack = (entry) => {
-        // Spotify client search responses have used both direct track objects and nested data wrappers.
         const item = entry?.track || entry?.item || entry?.data?.track || entry?.data?.item || entry?.data || entry;
         const meta = item?.metadata || {};
         const rawUri = item?.uri || meta.uri || item?.link?.uri;
-        const rawId = item?.id || item?.uid || meta.id || (typeof rawUri === 'string' ? rawUri.split(':').pop() : '');
+        const rawId = item?.id || item?.uid || meta.id ||
+          (typeof rawUri === 'string' ? rawUri.match(/(?:spotify:track:|open\.spotify\.com\/track\/)([A-Za-z0-9]+)/)?.[1] : '');
+        const id = rawId || (typeof item?.uri === 'string' ? item.uri.split(':').pop().split('?')[0] : '');
         const uri = typeof rawUri === 'string' && rawUri.startsWith('spotify:track:')
-          ? rawUri
-          : rawId ? `spotify:track:${rawId}` : '';
-        if (!uri || uri === 'spotify:track:') return null;
+          ? rawUri.split('?')[0]
+          : id ? `spotify:track:${id}` : '';
+        const rawName = item?.name ?? item?.title ?? meta.title;
+        const name = typeof rawName === 'string' ? rawName : rawName?.text || '';
+        if (!uri || uri === 'spotify:track:' || !name) return null;
 
-        const rawArtists = item?.artists?.items || item?.artists || item?.artists?.data || meta.artists || [];
+        const rawArtists = item?.artists?.items || item?.artists?.data || item?.artists || meta.artists || [];
         const artists = (Array.isArray(rawArtists) ? rawArtists : [rawArtists])
           .map((artist) => ({
             name: typeof artist === 'string'
               ? artist
-              : artist?.name || artist?.profile?.name || artist?.metadata?.name || ''
+              : artist?.name || artist?.profile?.name || artist?.metadata?.name || artist?.name?.text || ''
           }))
           .filter((artist) => artist.name);
-        if (!artists.length && meta.artist_name) {
-          artists.push({ name: meta.artist_name });
-        }
+        if (!artists.length && meta.artist_name) artists.push({ name: meta.artist_name });
 
         const image = item?.album?.images || item?.albumOfTrack?.coverArt?.sources ||
-          item?.images || item?.album?.image ||
-          meta.image_xlarge_url || meta.image_large_url || meta.image_url;
+          item?.images || item?.album?.image || meta.image_xlarge_url || meta.image_large_url || meta.image_url;
         return {
-          id: item?.id || uri.split(':').pop(),
+          id: id || uri.split(':').pop(),
           uri,
-          name: (typeof item?.name === 'string' ? item.name : item?.name?.text) || (typeof item?.title === 'string' ? item.title : item?.title?.text) || meta.title || '',
+          name,
           type: 'track',
           is_local: Boolean(item?.is_local),
           duration_ms: item?.duration_ms || item?.duration?.milliseconds || item?.duration?.totalMilliseconds || 0,
@@ -280,21 +306,28 @@
       if (Spicetify.Search && typeof Spicetify.Search.search === 'function') {
         try {
           const result = await Spicetify.Search.search(query, ['track'], limit, 0);
-          const items = result?.tracks?.items || result?.tracks?.data?.items || result?.tracks || [];
-          const tracks = (Array.isArray(items) ? items : []).map(normalizeTrack).filter(Boolean);
-          if (tracks.length) return tracks;
+          const tracks = collectEntries(result).map(normalizeTrack).filter(Boolean);
+          if (tracks.length) return tracks.slice(0, limit);
         } catch (error) {
           console.warn('[fluxBridge] client search failed; trying Spotify API', error);
         }
       }
 
-      // Keep the same track shape regardless of which Spotify search endpoint answered.
-      const result = await Spicetify.CosmosAsync.get(
-        `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`
-      );
-      const items = result?.tracks?.items || result?.tracks?.data?.items ||
-        result?.data?.tracks?.items || result?.tracks?.data || result?.data?.tracks || [];
-      return (Array.isArray(items) ? items : []).map(normalizeTrack).filter(Boolean);
+      try {
+        const result = await Spicetify.CosmosAsync.get(
+          `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`
+        );
+        const tracks = collectEntries(result).map(normalizeTrack).filter(Boolean);
+        if (tracks.length) return tracks.slice(0, limit);
+        console.warn('[fluxBridge] Spotify API search returned no recognizable tracks', {
+          query,
+          resultKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result
+        });
+        return [];
+      } catch (error) {
+        console.error('[fluxBridge] Spotify API search failed', error);
+        throw error;
+      }
     },
 
     /** Spotify's web endpoints (search, playlists), sent with the Spotify app's own login. */
