@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AppSettings, Theme, UpdatableSettings } from '../../../../shared/types';
-import { describeAccelerator, toAccelerator } from '../../../utils/accelerator';
+import { describeAccelerator, toAccelerator } from '../../utils/accelerator';
 import { IconButton } from '../IconButton/IconButton';
 import { CloseIcon } from '../Icons';
 import './SettingsPanel.css';
