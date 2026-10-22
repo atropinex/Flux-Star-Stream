@@ -96,6 +96,17 @@ if errorlevel 1 (
     exit /b 1
 )
 
+
+rem Refuse to apply an old bridge bundled inside an outdated app build.
+findstr /C:"const BRIDGE_BUILD = 'search-results-v3';" "%EXT_DIR%\fluxBridge.js" >nul
+if errorlevel 1 (
+    echo.
+    echo ERROR: This Star Stream installer contains an outdated fluxBridge.js.
+    echo Pull the latest fix/search-results-v2 branch, rebuild the app, then run this installer again.
+    pause
+    exit /b 1
+)
+
 echo.
 echo Registering the extension without removing other configured extensions...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
@@ -136,7 +147,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo SUCCESS: Spicetify is installed and fluxBridge.js is configured.
+echo SUCCESS: Spicetify is installed and fluxBridge.js build search-results-v3 is configured.
 echo Restart Spotify if it is already running, then launch Flux Star Stream.
 echo.
 pause
