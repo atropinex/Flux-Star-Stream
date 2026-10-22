@@ -314,6 +314,9 @@
             resultLength: Array.isArray(result) ? result.length : undefined,
             resultKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
             firstItem: Array.isArray(result) ? result[0] : undefined,
+            firstItemPreview: Array.isArray(result) && result.length
+              ? JSON.stringify(result[0], null, 2)?.slice(0, 4000)
+              : undefined,
             firstItemKeys: Array.isArray(result) && result[0] && typeof result[0] === 'object' ? Object.keys(result[0]) : undefined
           });
         } catch (error) {
@@ -332,7 +335,10 @@
           resultKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
           apiCode: result?.code,
           apiError: result?.error,
-          apiMessage: result?.message
+          apiMessage: result?.message,
+          responsePreview: result && typeof result === 'object'
+            ? JSON.stringify(result, null, 2)?.slice(0, 4000)
+            : String(result)
         });
         return [];
       } catch (error) {
