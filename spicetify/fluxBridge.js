@@ -282,7 +282,7 @@
         const id = rawId || (typeof rawUri === 'string' ? rawUri.split(':').pop().split('?')[0] : '');
         const uri = typeof rawUri === 'string' && rawUri.startsWith('spotify:track:')
           ? rawUri.split('?')[0]
-          : id ? \`spotify:track:\${id}\` : '';
+          : id ? `spotify:track:${id}` : '';
         const rawName = item?.name ?? item?.title ?? meta.title;
         const name = typeof rawName === 'string' ? rawName : rawName?.text || '';
         if (!uri || uri === 'spotify:track:' || !name) return null;
