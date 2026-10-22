@@ -1,6 +1,6 @@
-import type { Playlist, Track } from '../models/types';
-import { Dialog } from './Dialog';
-import { PlusIcon } from './Icons';
+import type { Playlist, Track } from '../../models/types';
+import { Dialog } from '../Dialog/Dialog';
+import { PlusIcon } from '../Icons';
 
 interface Props {
   track: Track;

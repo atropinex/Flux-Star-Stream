@@ -4,9 +4,9 @@ export type BannerSize = 'small' | 'medium' | 'large';
 
 // How the cards fan out. Every size uses the same shape at a different scale.
 const LAYOUT = {
-  large: { spacing: 92, centerGap: 40, drop: 7, depth: 40 },
-  medium: { spacing: 52, centerGap: 24, drop: 5, depth: 24 },
-  small: { spacing: 35, centerGap: 15, drop: 3, depth: 15 }
+  large: { spacing: 92, centerGap: 40, depth: 40 },
+  medium: { spacing: 52, centerGap: 24, depth: 24 },
+  small: { spacing: 35, centerGap: 15, depth: 15 }
 };
 const MAX_VISIBLE = 8; // cards further away than this are hidden
 
@@ -21,7 +21,7 @@ interface Props {
 
 /** One tall card. Its position and size come from how far it is from the selected card. */
 export function BannerCard({ imageUrl, label, offset, size, isPlaying, onClick }: Props) {
-  const { spacing, centerGap, drop, depth } = LAYOUT[size];
+  const { spacing, centerGap, depth } = LAYOUT[size];
   const distance = Math.abs(offset);
   const isSelected = distance === 0;
   const isHidden = distance > MAX_VISIBLE;
@@ -31,7 +31,7 @@ export function BannerCard({ imageUrl, label, offset, size, isPlaying, onClick }
 
   const style = {
     backgroundImage: imageUrl ? `url(${imageUrl})` : undefined,
-    transform: `translate(-50%, -50%) translateX(${x}px) translateY(${distance * drop}px) translateZ(${-distance * depth}px) scale(${scale})`,
+    transform: `translate(-50%, -50%) translateX(${x}px) translateZ(${-distance * depth}px) scale(${scale})`,
     zIndex: 100 - distance,
     opacity: isHidden ? 0 : 1 - distance * 0.06,
     filter: isSelected ? 'none' : `brightness(${1 - distance * 0.05}) saturate(.85)`,

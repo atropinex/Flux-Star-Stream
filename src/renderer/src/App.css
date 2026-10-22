@@ -1,0 +1,12 @@
+/* ---------- entrance and exit of the whole overlay ---------- */
+.header, .playlists, .preview, .playing-row, .player {
+  opacity: 0; transform: translateY(16px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.header { --i: 0; } .playlists { --i: 1; } .preview { --i: 2; } .playing-row { --i: 3; } .player { --i: 4; }
+
+.shown .header, .shown .playlists, .shown .preview, .shown .playing-row, .shown .player {
+  opacity: 1; transform: none;
+  transition: opacity .5s ease calc(var(--i) * 50ms), transform .65s cubic-bezier(.2,.8,.2,1) calc(var(--i) * 50ms);
+}
+

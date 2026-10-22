@@ -1,7 +1,8 @@
-import type { Playlist } from '../models/types';
-import { BannerRow } from './BannerRow';
-import { IconButton } from './IconButton';
-import { PlusIcon } from './Icons';
+import type { Playlist } from '../../models/types';
+import { BannerRow } from '../BannerRow/BannerRow';
+import { IconButton } from '../IconButton/IconButton';
+import { PlusIcon } from '../Icons';
+import './PlaylistRow.css';
 
 interface Props {
   playlists: Playlist[];

@@ -1,5 +1,6 @@
-import type { Track } from '../models/types';
-import { BannerRow } from './BannerRow';
+import type { Track } from '../../models/types';
+import { BannerRow } from '../BannerRow/BannerRow';
+import './PlayingRow.css';
 
 interface Props {
   tracks: Track[];

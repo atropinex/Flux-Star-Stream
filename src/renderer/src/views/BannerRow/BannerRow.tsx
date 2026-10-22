@@ -1,4 +1,5 @@
-import { BannerCard, type BannerSize } from './BannerCard';
+import { BannerCard, type BannerSize } from '../BannerCard';
+import './BannerRow.css';
 
 export interface BannerItem {
   key: string;

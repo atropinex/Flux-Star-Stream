@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type MouseEvent } from 'react';
-import type { PlaybackState } from '../models/types';
-import { formatTime } from '../utils/formatTime';
-import { IconButton } from './IconButton';
-import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, RepeatIcon, ShuffleIcon, VolumeIcon } from './Icons';
+import type { PlaybackState } from '../../models/types';
+import { formatTime } from '../../utils/formatTime';
+import { IconButton } from '../IconButton/IconButton';
+import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, RepeatIcon, ShuffleIcon, VolumeIcon } from '../Icons';
+import './PlayerBar.css';
 
 const VOLUME_DELAY_MS = 150;
 

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import type { AppSettings, Theme, UpdatableSettings } from '../../../shared/types';
-import { describeAccelerator, toAccelerator } from '../utils/accelerator';
-import { IconButton } from './IconButton';
-import { CloseIcon } from './Icons';
+import type { AppSettings, Theme, UpdatableSettings } from '../../../../shared/types';
+import { describeAccelerator, toAccelerator } from '../../utils/accelerator';
+import { IconButton } from '../IconButton/IconButton';
+import { CloseIcon } from '../Icons';
+import './SettingsPanel.css';
 
 interface Props {
   settings: AppSettings;

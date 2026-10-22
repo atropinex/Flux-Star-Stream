@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
-import type { Theme } from '../../../shared/types';
+import type { Theme } from '../../../../shared/types';
+import './ThemeLayers.css';
 
 interface Props {
   theme: Theme | undefined;

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { Track } from '../models/types';
-import { Dialog } from './Dialog';
+import type { Track } from '../../models/types';
+import { Dialog } from '../Dialog/Dialog';
 
 interface Props {
   track: Track | null; // a song to put in the new playlist, if any
