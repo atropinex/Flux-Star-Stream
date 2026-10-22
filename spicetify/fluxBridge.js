@@ -15,7 +15,7 @@
   const ADDRESS = `ws://127.0.0.1:${PORT}`;
   const RETRY_MS = 3000;
   const PLAY_CHECK_MS = 1000;
-  const BRIDGE_BUILD = 'search-results-v4';
+  const BRIDGE_BUILD = 'search-results-v5';
 
   // Spicetify loads extensions before Spotify is ready, so wait for it.
   if (!window.Spicetify || !Spicetify.Player || !Spicetify.Platform || !Spicetify.CosmosAsync) {
@@ -450,35 +450,39 @@
         console.warn('[fluxBridge] searchModalResults GraphQL definition is unavailable in this Spotify build.');
       }
 
-      // Spicetify CLI v3 no longer ships GraphQL.Definitions by default. Use the
-      // persisted Spotify desktop search operation directly through Spicetify's
-      // authenticated GraphQL wrapper when searchModalResults is unavailable or empty.
+      // Spotify's persisted operation hash changes with web-player releases. Prefer the
+      // definition bundled by Spotify, try known real hashes, then discover the current
+      // hash from Spotify's own search JavaScript chunk instead of guessing one.
       const spotifyGraphQL = Spicetify.GraphQL;
       if (spotifyGraphQL && typeof spotifyGraphQL.Request === 'function') {
-        try {
-          const searchDesktopDefinition = spotifyGraphQL.Definitions?.searchDesktop || {
-            name: 'searchDesktop',
-            operation: 'query',
-            sha256Hash: 'd9f785900f0710b31c07818d617f4f7600c1e21217e80f5b043d1e78d74e6026',
-            value: null
-          };
-          const result = await spotifyGraphQL.Request(searchDesktopDefinition, {
-            searchTerm: query,
-            offset: 0,
-            limit,
-            numberOfTopResults: Math.min(limit, 5),
-          });
+        const queryVariables = {
+          searchTerm: query,
+          offset: 0,
+          limit,
+          numberOfTopResults: Math.min(limit, 5),
+          includeAudiobooks: false
+        };
+        const getGraphQLError = (error) => ({
+          name: error?.name,
+          message: error?.message || String(error),
+          status: error?.status || error?.statusCode,
+          code: error?.code,
+          url: error?.url || error?.request?.url
+        });
+        const getTrackItems = (payload) =>
+          payload?.searchV2?.tracksV2?.items ||
+          payload?.searchV2?.tracks?.items ||
+          payload?.search?.tracksV2?.items ||
+          payload?.search?.tracks?.items ||
+          payload?.tracksV2?.items ||
+          payload?.tracks?.items ||
+          [];
+        const parseSearchResponse = (result, source) => {
           const payload = result?.data || result;
-          // searchDesktop's current Spotify response uses tracksV2, and each
-          // connection is shaped as { item: { data: track } }.
-          const trackItems = payload?.searchV2?.tracksV2?.items ||
-            payload?.searchV2?.tracks?.items ||
-            payload?.search?.tracksV2?.items ||
-            payload?.search?.tracks?.items ||
-            payload?.tracksV2?.items ||
-            payload?.tracks?.items ||
-            [];
-          const entries = trackItems.map((item) => item?.item?.data || item?.data || item?.track?.data || item?.track || item?.item || item);
+          const trackItems = getTrackItems(payload);
+          const entries = trackItems.map((item) =>
+            item?.item?.data || item?.data || item?.track?.data || item?.track || item?.item || item
+          );
           const tracks = [...new Map(
             [...entries, ...collectEntries(payload)]
               .map(normalizeTrack)
@@ -486,27 +490,107 @@
               .map((track) => [track.uri, track])
           ).values()];
           if (tracks.length) {
-            console.info('[fluxBridge] searchDesktop GraphQL search succeeded', {
+            console.info('[fluxBridge] Spotify GraphQL search succeeded', {
+              source,
               query,
-              resultCount: tracks.length
+              resultCount: tracks.length,
+              trackItemCount: trackItems.length
             });
             return tracks.slice(0, limit);
           }
-          searchFailures.push(`searchDesktop returned ${trackItems.length} track item(s), but none could be normalized`);
-          console.warn('[fluxBridge] searchDesktop GraphQL returned no recognizable tracks', {
+          searchFailures.push(`${source}: no usable tracks (track items: ${trackItems.length})`);
+          console.warn('[fluxBridge] Spotify GraphQL response contained no usable tracks', {
+            source,
             query,
             payloadKeys: payload && typeof payload === 'object' ? Object.keys(payload) : typeof payload,
-            searchKeys: payload?.searchV2 && typeof payload.searchV2 === 'object'
-              ? Object.keys(payload.searchV2)
-              : payload?.search && typeof payload.search === 'object' ? Object.keys(payload.search) : [],
+            errors: payload?.errors,
             trackItemCount: trackItems.length,
             responsePreview: payload && typeof payload === 'object'
-              ? JSON.stringify(payload, null, 2)?.slice(0, 2500)
+              ? JSON.stringify(payload, null, 2)?.slice(0, 1800)
               : String(payload)
           });
-        } catch (error) {
-          searchFailures.push(`searchDesktop: ${error?.message || String(error)}`);
-          console.warn('[fluxBridge] searchDesktop GraphQL request failed; trying compatibility fallbacks.', error);
+          return null;
+        };
+
+        const getSearchDesktopHashFromWebPlayer = async () => {
+          try {
+            const homeResponse = await fetch('https://open.spotify.com/', { headers: { accept: 'text/html' } });
+            if (!homeResponse.ok) throw new Error(`Spotify web player page returned HTTP ${homeResponse.status}`);
+            const html = await homeResponse.text();
+            const mainUrl = html.match(/https:\/\/open\.spotifycdn\.com\/cdn\/build\/web-player\/web-player\.[\w.-]+\.js/)?.[0];
+            if (!mainUrl) throw new Error('Could not find the current web-player bundle URL.');
+            const mainResponse = await fetch(mainUrl, { headers: { referer: 'https://open.spotify.com/' } });
+            if (!mainResponse.ok) throw new Error(`Spotify web-player bundle returned HTTP ${mainResponse.status}`);
+            const mainScript = await mainResponse.text();
+            const searchUrls = [...new Set(
+              [...mainScript.matchAll(/https:\/\/open\.spotifycdn\.com\/cdn\/build\/web-player\/[\w.-]*search[\w.-]*\.js/g)]
+                .map((match) => match[0])
+            )];
+            for (const url of searchUrls) {
+              const response = await fetch(url, { headers: { referer: 'https://open.spotify.com/' } });
+              if (!response.ok) continue;
+              const script = await response.text();
+              const hash = script.match(/["']searchDesktop["']\s*,\s*["']query["']\s*,\s*["']([a-f0-9]{64})["']/i)?.[1];
+              if (hash) {
+                console.info('[fluxBridge] Discovered current searchDesktop hash from Spotify web player.');
+                return hash;
+              }
+            }
+            throw new Error(`No searchDesktop hash found in ${searchUrls.length} search bundle(s).`);
+          } catch (error) {
+            console.warn('[fluxBridge] Could not discover the current Spotify search hash.', getGraphQLError(error));
+            return null;
+          }
+        };
+
+        const attempts = [];
+        const bundledDefinition = spotifyGraphQL.Definitions?.searchDesktop;
+        if (bundledDefinition) attempts.push({
+          source: 'bundled searchDesktop definition',
+          definition: bundledDefinition
+        });
+        const knownHashes = [
+          'eff59fa0a3d026b88b56fddbcf4bdfa16a186b8175a5c1a358c072e053c2e5b0',
+          '21b3fe49546912ba782db5c47e9ef5a7dbd20329520ba0c7d0fcfadee671d24e',
+          '75bbf6bfcfdf85b8fc828417bfad92b7cd66bf7f556d85670f4da8292373ebec'
+        ];
+        for (const hash of knownHashes) attempts.push({
+          source: `searchDesktop hash ${hash.slice(0, 8)}`,
+          definition: { name: 'searchDesktop', operation: 'query', sha256Hash: hash, value: null }
+        });
+
+        const triedHashes = new Set();
+        const tryDefinition = async (attempt) => {
+          try {
+            const result = await spotifyGraphQL.Request(attempt.definition, queryVariables);
+            return parseSearchResponse(result, attempt.source);
+          } catch (error) {
+            const detail = getGraphQLError(error);
+            searchFailures.push(`${attempt.source}: ${detail.status ? `HTTP ${detail.status} ` : ''}${detail.message}`);
+            console.warn('[fluxBridge] Spotify GraphQL request failed.', {
+              source: attempt.source,
+              query,
+              error: detail
+            });
+            return null;
+          }
+        };
+
+        for (const attempt of attempts) {
+          const hash = attempt.definition?.sha256Hash;
+          if (hash && triedHashes.has(hash)) continue;
+          if (hash) triedHashes.add(hash);
+          const tracks = await tryDefinition(attempt);
+          if (tracks?.length) return tracks;
+        }
+
+        const discoveredHash = await getSearchDesktopHashFromWebPlayer();
+        if (discoveredHash && !triedHashes.has(discoveredHash)) {
+          const tracks = await tryDefinition({
+            source: `discovered searchDesktop hash ${discoveredHash.slice(0, 8)}`,
+            definition: { name: 'searchDesktop', operation: 'query', sha256Hash: discoveredHash, value: null }
+          });
+          if (tracks?.length) return tracks;
         }
       }
 
