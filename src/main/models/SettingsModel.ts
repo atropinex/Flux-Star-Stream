@@ -6,6 +6,7 @@ import type { AppSettings } from '../../shared/types';
 const DEFAULTS: AppSettings = {
   shortcut: 'CommandOrControl+Alt+M',
   minimizeSpotify: true,
+  showCanvas: false,
   theme: 'default'
 };
 
