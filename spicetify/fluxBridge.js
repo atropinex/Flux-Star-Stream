@@ -235,33 +235,134 @@
       }).filter(Boolean);
     },
     async searchTracks(args) {
-      const limit = args.limit || 10;
+      const query = String(args.query || '').trim();
+      if (!query) return [];
+
+      const limit = Math.max(1, Math.min(50, Number(args.limit) || 10));
+
+      // Spotify changes the shape of search payloads between desktop versions.
+      // Walk common wrappers instead of assuming every result is in tracks.items.
+      const collectEntries = (value, depth = 0, found = [], seen = new Set()) => {
+        if (!value || depth > 8) return found;
+        if (Array.isArray(value)) {
+          for (const item of value) collectEntries(item, depth + 1, found, seen);
+          return found;
+        }
+        if (typeof value !== 'object' || seen.has(value)) return found;
+        seen.add(value);
+
+        const uri = value.uri || value.link?.uri || value.metadata?.uri || value.data?.uri;
+        const id = value.id || value.uid || value.gid || value.trackId || value.metadata?.id;
+        const name = value.name || value.title || value.metadata?.title || value.data?.name || value.data?.title;
+        const looksLikeTrack = (typeof uri === 'string' && (uri.startsWith('spotify:track:') || /open\.spotify\.com\/track\//.test(uri))) ||
+          (typeof id === 'string' && name) ||
+          (value.type === 'track' && name);
+        if (looksLikeTrack) found.push(value);
+
+        // Spotify changes the names and nesting of search-result fields between client versions.
+        // Walk nested objects instead of relying on a fixed list of wrapper keys.
+        for (const child of Object.values(value)) {
+          if (child && typeof child === 'object') collectEntries(child, depth + 1, found, seen);
+        }
+        return found;
+      };
+
+      const normalizeTrack = (entry) => {
+        let item = entry;
+        for (let depth = 0; depth < 6; depth++) {
+          const nested = item?.track || item?.item || item?.data?.track || item?.data?.item ||
+            item?.data || item?.content || item?.entity;
+          if (!nested || nested === item || typeof nested !== 'object') break;
+          item = nested;
+        }
+        const meta = item?.metadata || {};
+        const rawUri = item?.uri || meta.uri || item?.link?.uri || item?.data?.uri;
+        const rawId = item?.id || item?.uid || item?.gid || item?.trackId || meta.id ||
+          (typeof rawUri === 'string' ? rawUri.match(/(?:spotify:track:|open\.spotify\.com\/track\/)([A-Za-z0-9]+)/)?.[1] : '');
+        const id = rawId || (typeof rawUri === 'string' ? rawUri.split(':').pop().split('?')[0] : '');
+        const uri = typeof rawUri === 'string' && rawUri.startsWith('spotify:track:')
+          ? rawUri.split('?')[0]
+          : id ? \`spotify:track:\${id}\` : '';
+        const rawName = item?.name ?? item?.title ?? meta.title;
+        const name = typeof rawName === 'string' ? rawName : rawName?.text || '';
+        if (!uri || uri === 'spotify:track:' || !name) return null;
+
+        const rawArtists = item?.artists?.items || item?.artists?.data || item?.artists || meta.artists || [];
+        const artists = (Array.isArray(rawArtists) ? rawArtists : [rawArtists])
+          .map((artist) => ({
+            name: typeof artist === 'string'
+              ? artist
+              : artist?.name || artist?.profile?.name || artist?.metadata?.name || artist?.name?.text || ''
+          }))
+          .filter((artist) => artist.name);
+        if (!artists.length && meta.artist_name) artists.push({ name: meta.artist_name });
+
+        const image = item?.album?.images || item?.albumOfTrack?.coverArt?.sources ||
+          item?.images || item?.album?.image || meta.image_xlarge_url || meta.image_large_url || meta.image_url;
+        return {
+          id: id || uri.split(':').pop(),
+          uri,
+          name,
+          type: 'track',
+          is_local: Boolean(item?.is_local),
+          duration_ms: item?.duration_ms || item?.duration?.milliseconds || item?.duration?.totalMilliseconds || 0,
+          artists,
+          album: { images: normalizeImages(image) }
+        };
+      };
+
       if (Spicetify.Search && typeof Spicetify.Search.search === 'function') {
         try {
-          const result = await Spicetify.Search.search(args.query, ['track'], limit, 0);
-          const items = result?.tracks?.items || result?.tracks || [];
-          const tracks = items.map((entry) => {
-            const item = entry?.track || entry;
-            const artists = item?.artists || item?.metadata?.artists || [];
-            const image = item?.album?.images || item?.images || item?.album?.image;
-            return {
-              id: item?.id || item?.uri?.split(':').pop(),
-              uri: item?.uri,
-              name: item?.name || item?.title || item?.metadata?.title || '',
-              type: 'track',
-              is_local: Boolean(item?.is_local),
-              duration_ms: item?.duration_ms || item?.duration?.milliseconds || 0,
-              artists: artists.map((artist) => ({ name: typeof artist === 'string' ? artist : artist.name || artist.profile?.name || '' })).filter((artist) => artist.name),
-              album: { images: normalizeImages(image) }
-            };
-          }).filter((item) => item.id && item.uri);
-          if (tracks.length) return tracks;
+          const result = await Spicetify.Search.search(query, ['track'], limit, 0);
+          const tracks = [...new Map(
+            collectEntries(result)
+              .map(normalizeTrack)
+              .filter((track) => track && track.uri)
+              .map((track) => [track.uri, track])
+          ).values()];
+          if (tracks.length) return tracks.slice(0, limit);
+          console.warn('[fluxBridge] Search.search returned an unrecognized result shape', {
+            query,
+            isArray: Array.isArray(result),
+            resultLength: Array.isArray(result) ? result.length : undefined,
+            resultKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
+            firstItem: Array.isArray(result) ? result[0] : undefined,
+            firstItemPreview: Array.isArray(result) && result.length
+              ? JSON.stringify(result[0], null, 2)?.slice(0, 4000)
+              : undefined,
+            firstItemKeys: Array.isArray(result) && result[0] && typeof result[0] === 'object' ? Object.keys(result[0]) : undefined
+          });
         } catch (error) {
           console.warn('[fluxBridge] client search failed; trying Spotify API', error);
         }
       }
-      const result = await Spicetify.CosmosAsync.get(`https://api.spotify.com/v1/search?q=${encodeURIComponent(args.query)}&type=track&limit=${limit}`);
-      return result?.tracks?.items || [];
+
+      try {
+        const result = await Spicetify.CosmosAsync.get(
+          `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`
+        );
+        const tracks = [...new Map(
+          collectEntries(result)
+            .map(normalizeTrack)
+            .filter((track) => track && track.uri)
+            .map((track) => [track.uri, track])
+        ).values()];
+        if (tracks.length) return tracks.slice(0, limit);
+        console.warn('[fluxBridge] Spotify API search returned no recognizable tracks', {
+          query,
+          resultKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
+          apiCode: result?.code,
+          apiError: result?.error,
+          apiMessage: result?.message,
+          responsePreview: result && typeof result === 'object'
+            ? JSON.stringify(result, null, 2)?.slice(0, 4000)
+            : String(result)
+        });
+        return [];
+      } catch (error) {
+        console.error('[fluxBridge] Spotify API search failed', error);
+        throw error;
+      }
     },
 
     /** Spotify's web endpoints (search, playlists), sent with the Spotify app's own login. */

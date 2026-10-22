@@ -74,15 +74,21 @@ export async function fetchPlaylistTracks(playlistId: string): Promise<Track[]> 
 
 export async function searchTracks(query: string): Promise<Track[]> {
   try {
-    const clientTracks = await bridge('searchTracks', { query, limit: SEARCH_LIMIT }) as Track[] | null;
-    if (clientTracks?.length) return clientTracks;
+    const result = await bridge('searchTracks', { query, limit: SEARCH_LIMIT });
+    if (Array.isArray(result)) return result as Track[];
+
+    console.warn('[Star Stream] Spotify client search returned an unexpected response.', {
+      query,
+      responseType: typeof result,
+      responseKeys: result && typeof result === 'object' ? Object.keys(result) : []
+    });
   } catch (error) {
-    console.warn('[Star Stream] Spicetify search command unavailable; trying Web API.', error);
+    console.error('[Star Stream] Spotify client search failed.', error);
   }
-  const data = await spotifyRequest<{ tracks?: Page<Track>; data?: { tracks?: Page<Track> } }>(
-    `/search?q=${encodeURIComponent(query)}&type=track&limit=${SEARCH_LIMIT}`
-  );
-  return data?.tracks?.items ?? data?.tracks?.data?.items ?? data?.data?.tracks?.items ?? [];
+
+  // The Spicetify bridge already tries the in-client search and its internal fallback.
+  // Avoid issuing a second Web API request here, which can trigger additional 429 responses.
+  return [];
 }
 
 /** The id of the logged-in user, used to know which playlists can be edited. */
