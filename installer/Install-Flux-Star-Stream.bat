@@ -98,7 +98,7 @@ if errorlevel 1 (
 
 
 rem Refuse to apply an old bridge bundled inside an outdated app build.
-findstr /C:"const BRIDGE_BUILD = 'search-results-v3';" "%EXT_DIR%\fluxBridge.js" >nul
+findstr /C:"const BRIDGE_BUILD = 'search-results-v4';" "%EXT_DIR%\fluxBridge.js" >nul
 if errorlevel 1 (
     echo.
     echo ERROR: This Star Stream installer contains an outdated fluxBridge.js.
@@ -147,7 +147,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo SUCCESS: Spicetify is installed and fluxBridge.js build search-results-v3 is configured.
+echo SUCCESS: Spicetify is installed and fluxBridge.js build search-results-v4 is configured.
 echo Restart Spotify if it is already running, then launch Flux Star Stream.
 echo.
 pause
