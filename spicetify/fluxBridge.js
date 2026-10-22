@@ -241,12 +241,16 @@
       const limit = Math.max(1, Math.min(50, Number(args.limit) || 10));
       const normalizeTrack = (entry) => {
         // Spotify client search responses have used both direct track objects and nested data wrappers.
-        const item = entry?.track || entry?.item || entry?.data?.track || entry?.data || entry;
+        const item = entry?.track || entry?.item || entry?.data?.track || entry?.data?.item || entry?.data || entry;
         const meta = item?.metadata || {};
-        const uri = item?.uri || meta.uri;
-        if (!uri || !String(uri).startsWith('spotify:track:')) return null;
+        const rawUri = item?.uri || meta.uri || item?.link?.uri;
+        const rawId = item?.id || item?.uid || meta.id || (typeof rawUri === 'string' ? rawUri.split(':').pop() : '');
+        const uri = typeof rawUri === 'string' && rawUri.startsWith('spotify:track:')
+          ? rawUri
+          : rawId ? `spotify:track:${rawId}` : '';
+        if (!uri || uri === 'spotify:track:') return null;
 
-        const rawArtists = item?.artists?.items || item?.artists || meta.artists || [];
+        const rawArtists = item?.artists?.items || item?.artists || item?.artists?.data || meta.artists || [];
         const artists = (Array.isArray(rawArtists) ? rawArtists : [rawArtists])
           .map((artist) => ({
             name: typeof artist === 'string'
@@ -264,7 +268,7 @@
         return {
           id: item?.id || uri.split(':').pop(),
           uri,
-          name: item?.name || item?.title || meta.title || '',
+          name: (typeof item?.name === 'string' ? item.name : item?.name?.text) || (typeof item?.title === 'string' ? item.title : item?.title?.text) || meta.title || '',
           type: 'track',
           is_local: Boolean(item?.is_local),
           duration_ms: item?.duration_ms || item?.duration?.milliseconds || item?.duration?.totalMilliseconds || 0,
@@ -288,7 +292,8 @@
       const result = await Spicetify.CosmosAsync.get(
         `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`
       );
-      const items = result?.tracks?.items || result?.tracks?.data?.items || result?.data?.tracks?.items || [];
+      const items = result?.tracks?.items || result?.tracks?.data?.items ||
+        result?.data?.tracks?.items || result?.tracks?.data || result?.data?.tracks || [];
       return (Array.isArray(items) ? items : []).map(normalizeTrack).filter(Boolean);
     },
 
