@@ -268,44 +268,100 @@
       };
 
       const normalizeTrack = (entry) => {
-        let item = entry;
-        for (let depth = 0; depth < 6; depth++) {
-          const nested = item?.track || item?.item || item?.data?.track || item?.data?.item ||
-            item?.data || item?.content || item?.entity;
-          if (!nested || nested === item || typeof nested !== 'object') break;
-          item = nested;
-        }
-        const meta = item?.metadata || {};
-        const rawUri = item?.uri || meta.uri || item?.link?.uri || item?.data?.uri;
-        const rawId = item?.id || item?.uid || item?.gid || item?.trackId || meta.id ||
-          (typeof rawUri === 'string' ? rawUri.match(/(?:spotify:track:|open\.spotify\.com\/track\/)([A-Za-z0-9]+)/)?.[1] : '');
-        const id = rawId || (typeof rawUri === 'string' ? rawUri.split(':').pop().split('?')[0] : '');
-        const uri = typeof rawUri === 'string' && rawUri.startsWith('spotify:track:')
-          ? rawUri.split('?')[0]
-          : id ? `spotify:track:${id}` : '';
-        const rawName = item?.name ?? item?.title ?? meta.title;
-        const name = typeof rawName === 'string' ? rawName : rawName?.text || '';
-        if (!uri || uri === 'spotify:track:' || !name) return null;
+        // Search results can wrap a real track in item/data/track objects. Prefer
+        // the first object that actually contains both a track URI/ID and a title,
+        // rather than blindly descending into data and losing fields from its parent.
+        const candidates = [];
+        const visited = new Set();
+        const visit = (value, depth = 0) => {
+          if (!value || typeof value !== 'object' || depth > 8 || visited.has(value)) return;
+          visited.add(value);
+          candidates.push(value);
+          for (const key of ['track', 'item', 'data', 'content', 'entity', 'metadata']) {
+            const child = value[key];
+            if (child && typeof child === 'object') visit(child, depth + 1);
+          }
+        };
+        visit(entry);
 
-        const rawArtists = item?.artists?.items || item?.artists?.data || item?.artists || meta.artists || [];
+        const textValue = (value) => {
+          if (typeof value === 'string') return value;
+          if (!value || typeof value !== 'object') return '';
+          return value.text || value.title || value.name || value.default || '';
+        };
+        const asTrackUri = (value) => {
+          if (typeof value !== 'string') return '';
+          const spotifyUri = value.match(/spotify:track:([A-Za-z0-9]+)/);
+          if (spotifyUri) return `spotify:track:${spotifyUri[1]}`;
+          const webUri = value.match(/open\\.spotify\\.com\\/(?:intl-[^/]+/)?track/([A-Za-z0-9]+)/);
+          if (webUri) return `spotify:track:${webUri[1]}`;
+          return '';
+        };
+
+        let item = null;
+        let rawUri = '';
+        let name = '';
+        for (const candidate of candidates) {
+          const meta = candidate.metadata || {};
+          const uri = asTrackUri(candidate.uri || candidate.link?.uri || candidate.playableUri ||
+            candidate.canonicalUri || meta.uri || candidate.data?.uri);
+          const title = textValue(candidate.name) || textValue(candidate.title) ||
+            textValue(meta.title) || textValue(candidate.data?.name) || textValue(candidate.data?.title);
+          if (uri && title) {
+            item = candidate;
+            rawUri = uri;
+            name = title;
+            break;
+          }
+        }
+
+        if (!item) {
+          // Some Spotify builds expose a base62 track ID separately from the URI.
+          for (const candidate of candidates) {
+            const meta = candidate.metadata || {};
+            const idValue = candidate.id || candidate.uid || candidate.gid || candidate.trackId || meta.id;
+            const id = typeof idValue === 'string' && /^([A-Za-z0-9]{22})$/.test(idValue)
+              ? idValue
+              : typeof idValue === 'string' && /^spotify:track:[A-Za-z0-9]+$/.test(idValue)
+                ? idValue.split(':').pop()
+                : '';
+            const title = textValue(candidate.name) || textValue(candidate.title) ||
+              textValue(meta.title) || textValue(candidate.data?.name) || textValue(candidate.data?.title);
+            if (id && title) {
+              item = candidate;
+              rawUri = `spotify:track:${id}`;
+              name = title;
+              break;
+            }
+          }
+        }
+
+        if (!item || !rawUri || !name) return null;
+        const meta = item.metadata || {};
+        const rawArtists = item.artists?.items || item.artists?.data || item.artists ||
+          item.artistsNames || meta.artists || meta.artist_name || [];
         const artists = (Array.isArray(rawArtists) ? rawArtists : [rawArtists])
           .map((artist) => ({
             name: typeof artist === 'string'
               ? artist
-              : artist?.name || artist?.profile?.name || artist?.metadata?.name || artist?.name?.text || ''
+              : textValue(artist?.name) || textValue(artist?.profile?.name) ||
+                textValue(artist?.metadata?.name) || textValue(artist?.artistName)
           }))
           .filter((artist) => artist.name);
-        if (!artists.length && meta.artist_name) artists.push({ name: meta.artist_name });
+        if (!artists.length && typeof meta.artist_name === 'string') artists.push({ name: meta.artist_name });
 
-        const image = item?.album?.images || item?.albumOfTrack?.coverArt?.sources ||
-          item?.images || item?.album?.image || meta.image_xlarge_url || meta.image_large_url || meta.image_url;
+        const image = item.album?.images || item.albumOfTrack?.coverArt?.sources ||
+          item.images || item.album?.image || item.coverArt?.sources ||
+          meta.image_xlarge_url || meta.image_large_url || meta.image_url;
+        const id = rawUri.split(':').pop();
         return {
-          id: id || uri.split(':').pop(),
-          uri,
+          id,
+          uri: rawUri,
           name,
           type: 'track',
-          is_local: Boolean(item?.is_local),
-          duration_ms: item?.duration_ms || item?.duration?.milliseconds || item?.duration?.totalMilliseconds || 0,
+          is_local: Boolean(item.is_local || item.isLocal),
+          duration_ms: item.duration_ms || item.duration?.milliseconds ||
+            item.duration?.totalMilliseconds || item.duration?.totalMilliseconds || 0,
           artists,
           album: { images: normalizeImages(image) }
         };
@@ -348,6 +404,7 @@
             .map((track) => [track.uri, track])
         ).values()];
         if (tracks.length) return tracks.slice(0, limit);
+        const apiError = result && typeof result === 'object' && (result.code || result.error || result.message);
         console.warn('[fluxBridge] Spotify API search returned no recognizable tracks', {
           query,
           resultKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
@@ -358,7 +415,8 @@
             ? JSON.stringify(result, null, 2)?.slice(0, 4000)
             : String(result)
         });
-        return [];
+        if (apiError) throw new Error(`Spotify search failed: ${result.message || result.error || result.code}`);
+        throw new Error('Spotify search returned no usable track results.');
       } catch (error) {
         console.error('[fluxBridge] Spotify API search failed', error);
         throw error;
