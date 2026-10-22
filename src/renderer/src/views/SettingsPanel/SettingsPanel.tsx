@@ -76,6 +76,15 @@ export function SettingsPanel({ settings, themes, themeErrors, onShortcut, onUpd
             <input type="checkbox" checked={settings.minimizeSpotify} onChange={(event) => onUpdate({ minimizeSpotify: event.target.checked })} />
           </label>
         </section>
+
+        <section>
+          <h3>Playing banner</h3>
+          <label className="switch">
+            Play Spotify Canvas when available
+            <input type="checkbox" checked={settings.showCanvas} onChange={(event) => onUpdate({ showCanvas: event.target.checked })} />
+          </label>
+          <p className="note">Uses Canvas video exposed by Spotify. Availability depends on the current track and Spotify client version.</p>
+        </section>
       </aside>
     </div>
   );
