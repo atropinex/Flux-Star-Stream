@@ -264,6 +264,7 @@ button { font: inherit; color: inherit; }
 
 @keyframes cardIn { from { opacity: 0; translate: 0 30px; scale: .88; } }
 @keyframes songCardIn { from { opacity: 0; scale: .88; } }
+.banner-row.small .card,
 .banner-row.medium .card,
 .banner-row.large .card { animation-name: songCardIn; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } }
