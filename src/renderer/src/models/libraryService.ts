@@ -91,7 +91,12 @@ export async function searchTracks(query: string): Promise<Track[]> {
   if (!tracks.length) {
     console.warn('[Star Stream] Spotify Web API search returned no tracks.', {
       query,
-      responseKeys: data && typeof data === 'object' ? Object.keys(data) : typeof data
+      responseType: Array.isArray(data) ? 'array' : typeof data,
+      responseKeys: data && typeof data === 'object' ? Object.keys(data) : [],
+      apiCode: (data as { code?: unknown } | null)?.code,
+      apiError: (data as { error?: unknown } | null)?.error,
+      apiMessage: (data as { message?: unknown } | null)?.message,
+      response: data && typeof data === 'object' ? JSON.stringify(data, null, 2) : data
     });
   }
   return tracks;
