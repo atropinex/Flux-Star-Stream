@@ -3,6 +3,7 @@ import type { PlaybackState } from '../models/types';
 import { formatTime } from '../utils/formatTime';
 import { IconButton } from './IconButton';
 import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, RepeatIcon, ShuffleIcon, VolumeIcon } from './Icons';
+import './PlayerBar.css';
 
 const VOLUME_DELAY_MS = 150;
 
