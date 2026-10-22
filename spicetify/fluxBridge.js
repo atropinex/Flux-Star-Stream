@@ -15,6 +15,7 @@
   const ADDRESS = `ws://127.0.0.1:${PORT}`;
   const RETRY_MS = 3000;
   const PLAY_CHECK_MS = 1000;
+  const BRIDGE_BUILD = 'search-results-v3';
 
   // Spicetify loads extensions before Spotify is ready, so wait for it.
   if (!window.Spicetify || !Spicetify.Player || !Spicetify.Platform || !Spicetify.CosmosAsync) {
@@ -367,6 +368,86 @@
         };
       };
 
+      // Prefer Spotify's own authenticated GraphQL search operation. The undocumented
+      // Spicetify.Search helper is not consistently present across Spotify desktop builds,
+      // and the public Web API fallback has recently returned 429 for this app.
+      const graphQL = Spicetify.GraphQL;
+      const searchDefinition = graphQL?.Definitions?.searchModalResults;
+      if (searchDefinition && typeof graphQL.Request === 'function') {
+        try {
+          const operation = searchDefinition.definitions?.find((definition) => definition.kind === 'OperationDefinition');
+          const declaredVariables = operation?.variableDefinitions || [];
+          const variables = {};
+          let hasUnsupportedRequiredVariable = false;
+
+          const namedType = (type) => {
+            if (!type) return '';
+            if (type.name?.value) return type.name.value;
+            return namedType(type.type);
+          };
+
+          for (const definition of declaredVariables) {
+            const name = definition.variable?.name?.value;
+            if (!name) continue;
+            const normalizedName = name.toLowerCase();
+            const typeName = namedType(definition.type);
+            const required = definition.type?.kind === 'NonNullType' || JSON.stringify(definition.type || {}).includes('"kind":"NonNullType"');
+            if (/query|searchterm|searchquery|term|keywords/.test(normalizedName)) {
+              variables[name] = query;
+            } else if (/offset|startindex|start_index/.test(normalizedName)) {
+              variables[name] = 0;
+            } else if (/limit|count|pagesize|page_size|topresults|numberoftop/.test(normalizedName)) {
+              variables[name] = limit;
+            } else if (/include.*audiobook/.test(normalizedName)) {
+              variables[name] = false;
+            } else if (/include.*track/.test(normalizedName)) {
+              variables[name] = true;
+            } else if (/locale|language/.test(normalizedName)) {
+              variables[name] = graphQL.Context?.locale || 'en';
+            } else if (required) {
+              // Don't send invented values to a private query if this Spotify build changed
+              // its signature. Try the documented client helper and Web API fallback instead.
+              hasUnsupportedRequiredVariable = true;
+              console.warn('[fluxBridge] Unsupported required search GraphQL variable', { name, typeName });
+            }
+          }
+
+          if (!hasUnsupportedRequiredVariable && declaredVariables.length) {
+            const result = await graphQL.Request(searchDefinition, variables);
+            const tracks = [...new Map(
+              collectEntries(result)
+                .map(normalizeTrack)
+                .filter((track) => track && track.uri)
+                .map((track) => [track.uri, track])
+            ).values()];
+            if (tracks.length) {
+              console.info('[fluxBridge] GraphQL search succeeded', { query, resultCount: tracks.length });
+              return tracks.slice(0, limit);
+            }
+            console.warn('[fluxBridge] GraphQL search returned no recognizable tracks', {
+              query,
+              topLevelKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
+              resultPreview: result && typeof result === 'object'
+                ? JSON.stringify(result, null, 2)?.slice(0, 2500)
+                : String(result)
+            });
+          } else {
+            console.warn('[fluxBridge] GraphQL search definition has no supported variable signature', {
+              query,
+              variables: declaredVariables.map((item) => ({
+                name: item.variable?.name?.value,
+                type: namedType(item.type),
+                required: item.type?.kind === 'NonNullType'
+              }))
+            });
+          }
+        } catch (error) {
+          console.warn('[fluxBridge] Native GraphQL search failed; trying other search paths.', error);
+        }
+      } else {
+        console.warn('[fluxBridge] searchModalResults GraphQL definition is unavailable in this Spotify build.');
+      }
+
       if (Spicetify.Search && typeof Spicetify.Search.search === 'function') {
         try {
           const result = await Spicetify.Search.search(query, ['track'], limit, 0);
@@ -491,7 +572,8 @@
 
     connection.onopen = () => {
       console.info('[fluxBridge] Connected to Star Stream bridge.');
-      connection.send(JSON.stringify({ type: 'hello', name: 'fluxBridge', version: 1 }));
+      connection.send(JSON.stringify({ type: 'hello', name: 'fluxBridge', version: 1, build: BRIDGE_BUILD }));
+      console.info('[fluxBridge] Bridge build:', BRIDGE_BUILD);
     };
     connection.onmessage = handleMessage;
     connection.onerror = (event) => {
