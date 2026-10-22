@@ -240,6 +240,7 @@
       if (!query) return [];
 
       const limit = Math.max(1, Math.min(50, Number(args.limit) || 10));
+      const searchFailures = [];
 
       // Spotify changes the shape of search payloads between desktop versions.
       // Walk common wrappers instead of assuming every result is in tracks.items.
@@ -442,6 +443,7 @@
             });
           }
         } catch (error) {
+          searchFailures.push(`searchModalResults: ${error?.message || String(error)}`);
           console.warn('[fluxBridge] Native GraphQL search failed; trying other search paths.', error);
         }
       } else {
@@ -465,14 +467,18 @@
             offset: 0,
             limit,
             numberOfTopResults: Math.min(limit, 5),
-            includeAudiobooks: false
           });
           const payload = result?.data || result;
-          const trackItems = payload?.searchV2?.tracks?.items ||
+          // searchDesktop's current Spotify response uses tracksV2, and each
+          // connection is shaped as { item: { data: track } }.
+          const trackItems = payload?.searchV2?.tracksV2?.items ||
+            payload?.searchV2?.tracks?.items ||
+            payload?.search?.tracksV2?.items ||
             payload?.search?.tracks?.items ||
+            payload?.tracksV2?.items ||
             payload?.tracks?.items ||
             [];
-          const entries = trackItems.map((item) => item?.data || item?.track || item?.item || item);
+          const entries = trackItems.map((item) => item?.item?.data || item?.data || item?.track?.data || item?.track || item?.item || item);
           const tracks = [...new Map(
             [...entries, ...collectEntries(payload)]
               .map(normalizeTrack)
@@ -498,6 +504,7 @@
               : String(payload)
           });
         } catch (error) {
+          searchFailures.push(`searchDesktop: ${error?.message || String(error)}`);
           console.warn('[fluxBridge] searchDesktop GraphQL request failed; trying compatibility fallbacks.', error);
         }
       }
@@ -524,6 +531,7 @@
             firstItemKeys: Array.isArray(result) && result[0] && typeof result[0] === 'object' ? Object.keys(result[0]) : undefined
           });
         } catch (error) {
+          searchFailures.push(`Spicetify.Search.search: ${error?.message || String(error)}`);
           console.warn('[fluxBridge] client search failed; trying Spotify API', error);
         }
       }
@@ -540,6 +548,7 @@
         ).values()];
         if (tracks.length) return tracks.slice(0, limit);
         const apiError = result && typeof result === 'object' && (result.code || result.error || result.message);
+        searchFailures.push(`Spotify Web API: ${result?.message || result?.error || (result?.code ? `code ${result.code}` : 'no recognizable tracks')}`);
         console.warn('[fluxBridge] Spotify API search returned no recognizable tracks', {
           query,
           resultKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
@@ -550,11 +559,12 @@
             ? JSON.stringify(result, null, 2)?.slice(0, 4000)
             : String(result)
         });
-        if (apiError) throw new Error(`Spotify search failed: ${result.message || result.error || result.code}`);
-        throw new Error('Spotify search returned no usable track results.');
+        if (apiError) throw new Error(`Spotify search failed: ${result.message || result.error || result.code}. ${searchFailures.join(' | ')}`);
+        throw new Error(`Spotify search returned no usable track results. ${searchFailures.join(' | ')}`);
       } catch (error) {
-        console.error('[fluxBridge] Spotify API search failed', error);
-        throw error;
+        const message = error?.message || String(error);
+        console.error('[fluxBridge] Spotify API search failed', { query, error, earlierFailures: searchFailures });
+        throw new Error(`${message}${searchFailures.length ? `. Earlier search failures: ${searchFailures.join(' | ')}` : ''}`);
       }
     },
 
