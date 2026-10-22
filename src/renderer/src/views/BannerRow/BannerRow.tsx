@@ -4,6 +4,7 @@ import './BannerRow.css';
 export interface BannerItem {
   key: string;
   imageUrl?: string;
+  videoUrl?: string;
   label: string;
   isPlaying?: boolean;
 }
@@ -27,6 +28,7 @@ export function BannerRow({ items, selectedIndex, size, listKey = 'static', isLo
           <BannerCard
             key={item.key}
             imageUrl={item.imageUrl}
+            videoUrl={item.videoUrl}
             label={item.label}
             size={size}
             isPlaying={item.isPlaying ?? false}
