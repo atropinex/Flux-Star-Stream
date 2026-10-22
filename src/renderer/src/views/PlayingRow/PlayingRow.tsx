@@ -28,24 +28,13 @@ export function PlayingRow({ tracks, selectedIndex, playingIndex, listKey, headi
         items={tracks.map((track, index) => ({
           key: track.id + index,
           imageUrl: track.album.images[0]?.url,
+          videoUrl: index === playingIndex ? canvasUrl ?? undefined : undefined,
           label: track.name,
           isPlaying: index === playingIndex
         }))}
         onSelect={onSelect}
         onActivate={onActivate}
       />
-      {canvasUrl && tracks.length > 0 && (
-        <video
-          className="playing-canvas"
-          key={canvasUrl}
-          src={canvasUrl}
-          autoPlay
-          loop
-          muted
-          playsInline
-          aria-label="Spotify Canvas"
-        />
-      )}
       {!hasPlayback && <p className="empty-hint">Nothing playing yet. Pick a song in the preview and press Enter.</p>}
     </section>
   );
