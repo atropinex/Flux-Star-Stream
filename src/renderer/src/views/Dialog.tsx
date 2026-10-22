@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import './Dialog.css';
 
 interface Props {
   title: string;
