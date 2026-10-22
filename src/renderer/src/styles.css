@@ -28,246 +28,19 @@ button { font: inherit; color: inherit; }
   overflow: hidden;
 }
 
-/* ---------- header ---------- */
-.header { flex: none; display: flex; align-items: center; gap: 16px; padding: 22px 28px 6px; }
-.brand { width: 120px; font-size: 12px; font-weight: 600; letter-spacing: .24em; color: var(--dim); }
-.header-actions { width: 120px; display: flex; justify-content: flex-end; gap: 4px; }
 
-.search {
-  flex: 1; max-width: 420px; margin: 0 auto;
-  display: flex; align-items: center; gap: 10px;
-  height: 38px; padding: 0 16px;
-  border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
-  color: var(--dim); transition: border-color .2s, background .2s;
-}
-.search:focus-within { border-color: rgba(200,228,234,.5); background: rgba(255,255,255,.08); color: var(--ink); }
-.search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--ink); font-size: 14px; user-select: text; }
-.search input::placeholder { color: var(--dim); }
-
-/* ---------- icon buttons ---------- */
-.icon-button {
-  position: relative; width: 36px; height: 36px; flex: none;
-  display: grid; place-items: center;
-  border: 0; border-radius: 50%; background: none; color: var(--dim); cursor: pointer;
-  transition: color .15s, background .15s;
-}
-.icon-button:hover { color: var(--ink); background: rgba(255,255,255,.08); }
-.icon-button.active { color: var(--accent); }
-.icon-button.active::after {
-  content: ""; position: absolute; bottom: 3px; left: 50%;
-  width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent);
-}
-
-/* ---------- banner rows (playlists small, songs large) ---------- */
-.banner-row { position: relative; perspective: 1400px; }
-.banner-row.large { flex: 1; min-height: 0; --w: 170px; --h: min(330px, 94%); }
-.banner-row.medium { flex: none; height: 160px; --w: 92px; --h: 140px; }
-.banner-row.small { flex: none; height: 112px; --w: 64px; --h: 100px; }
-
-.card {
-  position: absolute; left: 50%; top: 50%;
-  width: var(--w); height: var(--h);
-  border-radius: 4px; overflow: hidden;
-  background: #1d2a30 center / cover;
-  box-shadow: 0 14px 34px rgba(0,0,0,.5);
-  cursor: pointer;
-  outline: 1px solid transparent; outline-offset: 2px;
-  transition: transform .55s cubic-bezier(.2,.8,.2,1), opacity .45s, filter .45s, outline-color .3s, box-shadow .3s;
-  animation: cardIn .6s cubic-bezier(.2,.8,.2,1) both;
-  animation-delay: calc(var(--d, 0) * 45ms);
-}
-.card:not(.selected):hover { filter: brightness(1.12) saturate(1) !important; }
-.banner-row.small .card { border-radius: 3px; box-shadow: 0 8px 18px rgba(0,0,0,.45); }
-.card.selected { outline-color: rgba(255,255,255,.4); }
-.card.playing { box-shadow: 0 0 0 1px var(--accent), 0 14px 34px rgba(0,0,0,.5); }
-
-.card-label {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  padding: 40px 12px 12px; font-size: 13px;
-  background: linear-gradient(transparent, rgba(0,0,0,.8));
-  opacity: 0; transition: opacity .3s;
-}
-.banner-row.large .card.selected .card-label { opacity: 1; }
-.banner-row.small .card-label { display: none; }
-
-/* Keep the top playlist row's layout box stable while its cards scroll/animate. */
-.playlists { flex: none; height: 128px; overflow: hidden; contain: layout; }
-.playlist-caption { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 0 2px; font-size: 12px; letter-spacing: .04em; color: var(--dim); }
-
-.info { flex: none; padding: 2px 24px 8px; text-align: center; }
-.info h1 { font-size: 18px; font-weight: 400; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.info p { margin-top: 2px; font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.info-actions { display: flex; justify-content: center; gap: 10px; margin-top: 6px; }
-.pill {
-  display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px;
-  border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: var(--surface); color: var(--ink);
-  font-size: 12px; cursor: pointer; transition: background .15s, border-color .15s;
-}
+/* Shared controls and animations */
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 12px; cursor: pointer; transition: background .15s, border-color .15s; }
 .pill:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.32); }
-
-/* ---------- player ---------- */
-.player {
-  flex: none; width: min(920px, calc(100% - 48px)); height: 92px; margin: 0 auto 20px;
-  display: grid; grid-template-columns: minmax(150px,1fr) minmax(300px,1.5fr) minmax(96px,1fr);
-  gap: 20px; min-width: 0; align-items: center; padding: 0 18px 0 12px;
-  position: relative; z-index: 10; /* always above the card rows */
-  background: rgba(16,24,28,.92); border: 1px solid var(--line); border-radius: 16px;
-}
-
-.now-playing { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.cover { flex: none; width: 66px; height: 66px; border-radius: 8px; background: #1d2a30 center / cover; box-shadow: 0 6px 16px rgba(0,0,0,.4); }
-.meta { min-width: 0; }
-.track-title, .track-artist, .device-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.track-title { font-size: 15px; font-weight: 500; }
-.track-artist { margin-top: 3px; font-size: 12px; color: var(--dim); }
-
-.transport { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.controls { display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 10px; }
-.controls > * { flex: none; }
-.play-pause {
-  width: 44px; height: 44px; display: grid; place-items: center;
-  border: 0; border-radius: 50%; background: var(--ink); color: var(--deep); cursor: pointer;
-  transition: transform .15s, background .15s;
-}
-.play-pause:hover { transform: scale(1.07); background: #fff; }
-.play-pause:active { transform: scale(.97); }
-
-.seek-row { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
-.seek-row span { width: 34px; }
-.seek-row span:first-child { text-align: right; }
-.seek { position: relative; flex: 1; height: 16px; display: flex; align-items: center; cursor: pointer; }
-.seek-track { position: relative; width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,.14); }
-.seek-progress { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--ink); transition: width .3s linear, background .2s; }
-.seek-progress::after {
-  content: ""; position: absolute; right: -6px; top: 50%; width: 12px; height: 12px; margin-top: -6px;
-  border-radius: 50%; background: #fff; opacity: 0; transition: opacity .15s;
-}
-.seek:hover .seek-progress { background: var(--accent); }
-.seek:hover .seek-progress::after { opacity: 1; }
-
-.volume-block { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-width: 0; }
-.volume { display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; }
-.device-name { padding-left: 42px; font-size: 11px; color: var(--dim); }
-
-.volume-slider {
-  flex: 1; min-width: 0; height: 4px; border-radius: 2px; outline: none; cursor: pointer;
-  -webkit-appearance: none; appearance: none;
-  background: linear-gradient(to right, var(--ink) var(--value), rgba(255,255,255,.14) var(--value));
-}
-.volume-slider::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; opacity: 0; transition: opacity .15s;
-}
-.volume:hover .volume-slider::-webkit-slider-thumb { opacity: 1; }
-
-/* narrow windows: drop the extras instead of letting icons overlap */
-@media (max-width: 820px) {
-  .player { gap: 12px; grid-template-columns: minmax(0,1fr) minmax(280px,1.6fr) auto; }
-  .volume-slider, .device-name { display: none; }
-}
-
-/* ---------- settings panel ---------- */
-.settings-backdrop { animation: fadeIn .25s ease both; position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.4); }
-.settings {
-  animation: drawerIn .35s cubic-bezier(.2,.8,.2,1) both;
-  position: fixed; top: 0; right: 0; bottom: 0; width: 340px; padding: 20px; overflow-y: auto;
-  background: rgba(20,30,36,.98); border-left: 1px solid var(--line); user-select: text;
-}
-.settings header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.settings h2 { font-size: 22px; font-weight: 300; }
-.settings section { padding: 16px 0; border-top: 1px solid var(--line); }
-.settings h3 { margin-bottom: 8px; font-size: 14px; font-weight: 600; }
-.settings label { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
-.settings input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 .note { margin-top: 6px; font-size: 12px; line-height: 1.5; color: var(--dim); }
-.shortcut { padding: 8px 14px; border: 1px solid var(--accent); border-radius: 8px; background: none; color: var(--accent); font-size: 13px; cursor: pointer; }
-.shortcut.recording { background: var(--accent); color: var(--deep); }
-
-/* ---------- login and messages ---------- */
-.login {
-  animation: fadeIn .35s ease both;
-  position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; gap: 14px;
-  align-items: center; justify-content: center; background: rgba(6,10,13,.94);
-}
-.login h2 { font-size: 30px; font-weight: 300; }
-.login .steps { max-width: 380px; font-size: 13px; line-height: 1.6; color: var(--dim); text-align: left; user-select: text; }
-.login code { padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,.08); color: var(--ink); }
-.login input { width: min(380px,80%); padding: 10px 14px; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; background: rgba(255,255,255,.05); color: var(--ink); font-size: 14px; user-select: text; outline: none; }
-.login input:focus { border-color: var(--accent); }
-.login button { padding: 10px 26px; border: 1px solid var(--accent); border-radius: 999px; background: none; color: var(--accent); font-size: 14px; cursor: pointer; }
-.login button:hover { background: var(--accent); color: var(--deep); }
-.login button.link { padding: 0; border: 0; background: none; color: var(--dim); font-size: 12px; text-decoration: underline; }
-.login button.link:hover { background: none; color: var(--ink); }
-
-.toast {
-  position: fixed; top: 24px; left: 50%; translate: -50% -10px; max-width: 80%; padding: 8px 16px;
-  border-radius: 8px; background: rgba(30,44,52,.96); border: 1px solid var(--line); font-size: 13px;
-  opacity: 0; transition: opacity .3s, translate .35s cubic-bezier(.2,.8,.2,1); z-index: 100; pointer-events: none;
-}
-.toast.visible { opacity: 1; translate: -50% 0; }
-
-
-
-.card-initial { position: absolute; inset: 0; display: grid; place-items: center; font-size: 28px; font-weight: 300; color: var(--dim); }
-.banner-row.small .card-initial { font-size: 20px; }
-
-/* ---------- dialogs ---------- */
-.dialog-backdrop { animation: fadeIn .2s ease both; position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(0,0,0,.45); }
-.dialog { animation: dialogIn .3s cubic-bezier(.2,.8,.2,1) both; width: min(380px, 90vw); padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: #141d22; box-shadow: 0 24px 60px rgba(0,0,0,.6); }
-.dialog h2 { margin-bottom: 14px; font-size: 20px; font-weight: 400; }
-.dialog input { width: 100%; padding: 10px 14px; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; background: rgba(255,255,255,.05); color: var(--ink); font-size: 14px; user-select: text; outline: none; }
-.dialog input:focus { border-color: var(--accent); }
-.dialog .note { margin-bottom: 4px; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-.dialog-actions button { padding: 8px 18px; border-radius: 999px; font-size: 13px; cursor: pointer; }
-.dialog-actions .ghost { border: 1px solid var(--line); background: none; color: var(--dim); }
-.dialog-actions .ghost:hover { color: var(--ink); }
-.dialog-actions .primary { border: 0; background: var(--ink); color: var(--deep); }
-.dialog-actions .primary:disabled { opacity: .35; cursor: default; }
-.dialog-list { display: flex; flex-direction: column; gap: 2px; max-height: 50vh; margin-top: 8px; overflow-y: auto; }
-.dialog-item { display: flex; align-items: center; gap: 12px; padding: 8px; border: 0; border-radius: 8px; background: none; text-align: left; font-size: 14px; cursor: pointer; }
-.dialog-item:hover { background: rgba(255,255,255,.08); }
-.dialog-thumb { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 4px; background: #1d2a30 center / cover; color: var(--dim); font-size: 14px; }
-
-/* ---------- playing row ---------- */
-.playing-row { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.preview { flex: none; }
-.row-caption { margin-bottom: 4px; text-align: center; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
-.row-caption b { font-weight: 600; color: var(--ink); }
-
-/* moving bars on the song or playlist that is playing */
-.eq { position: absolute; top: 8px; left: 8px; z-index: 2; display: flex; align-items: flex-end; gap: 2px; height: 22px; padding: 5px 6px; border-radius: 6px; background: rgba(0,0,0,.6); }
-.eq i { width: 3px; height: 100%; border-radius: 1px; background: var(--accent); transform-origin: bottom; animation: eq 1s ease-in-out infinite; }
-.eq i:nth-child(2) { animation-delay: .2s; }
-.eq i:nth-child(3) { animation-delay: .4s; }
-.paused .eq i { animation-play-state: paused; }
-.banner-row.small .eq { top: 4px; left: 4px; height: 14px; padding: 3px 4px; }
-.banner-row.small .eq i { width: 2px; }
-
-/* the list is replaced: dim the old cards while the new ones load */
-.banner-set { position: absolute; inset: 0; transform-style: preserve-3d; transition: opacity .3s ease, transform .3s ease; }
-.banner-row.loading .banner-set { opacity: .35; transform: scale(.98); }
-
-/* ---------- entrance and exit of the whole overlay ---------- */
-.header, .playlists, .preview, .playing-row, .player {
-  opacity: 0; transform: translateY(16px);
-  transition: opacity .2s ease, transform .2s ease;
-}
-.header { --i: 0; } .playlists { --i: 1; } .preview { --i: 2; } .playing-row { --i: 3; } .player { --i: 4; }
-
-.shown .header, .shown .playlists, .shown .preview, .shown .playing-row, .shown .player {
-  opacity: 1; transform: none;
-  transition: opacity .5s ease calc(var(--i) * 50ms), transform .65s cubic-bezier(.2,.8,.2,1) calc(var(--i) * 50ms);
-}
-
+.fade-in { animation: fadeUp .4s cubic-bezier(.2,.8,.2,1) both; }
+.pop { display: grid; animation: popIn .22s cubic-bezier(.2,.8,.2,1) both; }
 /* ---------- small animations ---------- */
 .fade-in { animation: fadeUp .4s cubic-bezier(.2,.8,.2,1) both; }
 .pop { display: grid; animation: popIn .22s cubic-bezier(.2,.8,.2,1) both; }
 
 @keyframes cardIn { from { opacity: 0; translate: 0 30px; scale: .88; } }
 @keyframes songCardIn { from { opacity: 0; scale: .88; } }
-.banner-row.small .card,
-.banner-row.medium .card,
-.banner-row.large .card { animation-name: songCardIn; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } }
 @keyframes fadeIn { from { opacity: 0; } }
 @keyframes popIn { from { opacity: 0; transform: scale(.6); } }
@@ -279,20 +52,13 @@ button { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
 }
-.empty-hint { position: absolute; inset: 0; display: grid; place-items: center; font-size: 14px; color: var(--dim); pointer-events: none; }
 
-/* ---------- theme layers ---------- */
-.theme-layers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.theme-layer { position: absolute; animation: fadeIn .9s ease both; }
-
-/* ---------- loop button badge ---------- */
-.loop-badge { position: absolute; top: 4px; right: 3px; font-size: 9px; font-weight: 700; line-height: 1; color: var(--accent); }
-
-/* ---------- more settings ---------- */
-.settings select { width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.06); color: var(--ink); font-size: 13px; outline: none; }
-.settings select option { background: #141d22; }
-.settings-buttons { display: flex; gap: 8px; margin-top: 10px; }
-.settings label.slider { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 12px; }
-.settings input[type=range] { accent-color: var(--accent); }
-.settings input:disabled { opacity: .35; }
-.note.error { color: #ff8f8f; user-select: text; }
+@keyframes cardIn { from { opacity: 0; translate: 0 30px; scale: .88; } }
+@keyframes songCardIn { from { opacity: 0; scale: .88; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } }
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes popIn { from { opacity: 0; transform: scale(.6); } }
+@keyframes drawerIn { from { opacity: 0; transform: translateX(40px); } }
+@keyframes dialogIn { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+@keyframes eq { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; transition-delay: 0s !important; } }
