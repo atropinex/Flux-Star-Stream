@@ -164,6 +164,7 @@ export default function App() {
           heading={playing.heading}
           hasPlayback={player.playback !== null}
           isLoading={playing.isLoading}
+          canvasUrl={settings?.showCanvas ? player.playback?.canvasUrl : null}
           onSelect={playing.select}
           onActivate={playFromPlaying}
         />
