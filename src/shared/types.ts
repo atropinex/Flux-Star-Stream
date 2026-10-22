@@ -1,6 +1,8 @@
 export interface AppSettings {
   shortcut: string;         // Electron accelerator, e.g. "CommandOrControl+Alt+M"
   minimizeSpotify: boolean; // minimize the Spotify app when the overlay opens
+  crossfadeEnabled: boolean; // trigger the next track early for Spotify's native crossfade
+  crossfadeSeconds: number; // seconds before the end of a track to trigger the transition
   theme: string;            // id of a theme file (its name without .yaml)
 }
 
