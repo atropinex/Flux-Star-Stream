@@ -15,7 +15,7 @@
   const ADDRESS = `ws://127.0.0.1:${PORT}`;
   const RETRY_MS = 3000;
   const PLAY_CHECK_MS = 1000;
-  const BRIDGE_BUILD = 'search-results-v3';
+  const BRIDGE_BUILD = 'search-results-v4';
 
   // Spicetify loads extensions before Spotify is ready, so wait for it.
   if (!window.Spicetify || !Spicetify.Player || !Spicetify.Platform || !Spicetify.CosmosAsync) {
@@ -446,6 +446,60 @@
         }
       } else {
         console.warn('[fluxBridge] searchModalResults GraphQL definition is unavailable in this Spotify build.');
+      }
+
+      // Spicetify CLI v3 no longer ships GraphQL.Definitions by default. Use the
+      // persisted Spotify desktop search operation directly through Spicetify's
+      // authenticated GraphQL wrapper when searchModalResults is unavailable or empty.
+      const spotifyGraphQL = Spicetify.GraphQL;
+      if (spotifyGraphQL && typeof spotifyGraphQL.Request === 'function') {
+        try {
+          const searchDesktopDefinition = spotifyGraphQL.Definitions?.searchDesktop || {
+            name: 'searchDesktop',
+            operation: 'query',
+            sha256Hash: 'd9f785900f0710b31c07818d617f4f7600c1e21217e80f5b043d1e78d74e6026',
+            value: null
+          };
+          const result = await spotifyGraphQL.Request(searchDesktopDefinition, {
+            searchTerm: query,
+            offset: 0,
+            limit,
+            numberOfTopResults: Math.min(limit, 5),
+            includeAudiobooks: false
+          });
+          const payload = result?.data || result;
+          const trackItems = payload?.searchV2?.tracks?.items ||
+            payload?.search?.tracks?.items ||
+            payload?.tracks?.items ||
+            [];
+          const entries = trackItems.map((item) => item?.data || item?.track || item?.item || item);
+          const tracks = [...new Map(
+            [...entries, ...collectEntries(payload)]
+              .map(normalizeTrack)
+              .filter((track) => track && track.uri)
+              .map((track) => [track.uri, track])
+          ).values()];
+          if (tracks.length) {
+            console.info('[fluxBridge] searchDesktop GraphQL search succeeded', {
+              query,
+              resultCount: tracks.length
+            });
+            return tracks.slice(0, limit);
+          }
+          console.warn('[fluxBridge] searchDesktop GraphQL returned no recognizable tracks', {
+            query,
+            payloadKeys: payload && typeof payload === 'object' ? Object.keys(payload) : typeof payload,
+            searchKeys: payload?.searchV2 && typeof payload.searchV2 === 'object'
+              ? Object.keys(payload.searchV2)
+              : payload?.search && typeof payload.search === 'object' ? Object.keys(payload.search) : [],
+            trackItemCount: trackItems.length,
+            responsePreview: payload && typeof payload === 'object'
+              ? JSON.stringify(payload, null, 2)?.slice(0, 2500)
+              : String(payload)
+          });
+        } catch (error) {
+          console.warn('[fluxBridge] searchDesktop GraphQL request failed; trying compatibility fallbacks.', error);
+        }
       }
 
       if (Spicetify.Search && typeof Spicetify.Search.search === 'function') {
