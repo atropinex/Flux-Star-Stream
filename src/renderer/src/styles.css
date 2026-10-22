@@ -90,7 +90,8 @@ button { font: inherit; color: inherit; }
 .banner-row.large .card.selected .card-label { opacity: 1; }
 .banner-row.small .card-label { display: none; }
 
-.playlists { flex: none; }
+/* Keep the top playlist row's layout box stable while its cards scroll/animate. */
+.playlists { flex: none; height: 136px; overflow: hidden; contain: layout; }
 .playlist-caption { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 0 2px; font-size: 12px; letter-spacing: .04em; color: var(--dim); }
 
 .info { flex: none; padding: 2px 24px 8px; text-align: center; }
