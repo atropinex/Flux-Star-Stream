@@ -26,6 +26,28 @@
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const player = () => Spicetify.Player;
 
+  let crossfadeConfig = { enabled: false, seconds: 6 };
+  let crossfadeTriggeredUri = null;
+
+  // Trigger the next track early; Spotify's own Crossfade songs setting performs the audio overlap.
+  setInterval(() => {
+    if (!crossfadeConfig.enabled || crossfadeConfig.seconds <= 0) return;
+    const data = player().data;
+    const item = data && (data.item || data.track);
+    const uri = item?.uri;
+    if (!uri) {
+      crossfadeTriggeredUri = null;
+      return;
+    }
+    if (crossfadeTriggeredUri && crossfadeTriggeredUri !== uri) crossfadeTriggeredUri = null;
+    const duration = player().getDuration() || item.duration?.milliseconds || item.duration_ms || 0;
+    const progress = player().getProgress() || 0;
+    if (player().isPlaying() && duration > 0 && duration - progress <= crossfadeConfig.seconds * 1000 && crossfadeTriggeredUri !== uri) {
+      crossfadeTriggeredUri = uri;
+      player().next();
+    }
+  }, 250);
+
   // ---------- what is playing ----------
 
   // Spotify-internal image URIs are not valid browser image URLs.
@@ -143,6 +165,15 @@
   const commands = {
     async state() {
       return getState();
+    },
+
+    async configureCrossfade(args) {
+      crossfadeConfig = {
+        enabled: Boolean(args.enabled),
+        seconds: Math.max(0, Math.min(12, Math.round(Number(args.seconds) || 0)))
+      };
+      if (!crossfadeConfig.enabled) crossfadeTriggeredUri = null;
+      return { ...crossfadeConfig };
     },
 
     async play(request) {
