@@ -2,6 +2,7 @@ import { WebSocket, WebSocketServer, type RawData } from 'ws';
 
 /** The Spicetify extension connects to this port. It is written at the top of fluxBridge.js as well. */
 export const BRIDGE_PORT = 52701;
+export const BRIDGE_BUILD = 'search-results-v6';
 
 export class BridgeError extends Error {
   constructor(message: string, public status?: number) {
@@ -10,9 +11,17 @@ export class BridgeError extends Error {
 }
 
 interface Pending {
+  command: string;
+  startedAt: number;
   resolve: (data: unknown) => void;
   reject: (error: BridgeError) => void;
   timer: NodeJS.Timeout;
+}
+
+interface BridgeClientInfo {
+  name: string;
+  version: number | null;
+  build: string | null;
 }
 
 /** Web pages can open sockets to localhost too. Only Spotify's own pages may connect. */
@@ -35,6 +44,7 @@ export class BridgeModel {
   private socket: WebSocket | null = null;
   private nextId = 1;
   private pending = new Map<number, Pending>();
+  private clientInfo: BridgeClientInfo | null = null;
 
   start(): void {
     if (this.server) return;
@@ -75,7 +85,26 @@ export class BridgeModel {
         this.pending.delete(id);
         reject(new BridgeError('Spotify did not answer in time.'));
       }, timeoutMs);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.set(id, { command, startedAt: Date.now(), resolve, reject, timer });
+      if (command === 'searchTracks') {
+        const clientInfo = this.clientInfo;
+        if (!clientInfo || clientInfo.build !== BRIDGE_BUILD) {
+          clearTimeout(timer);
+          this.pending.delete(id);
+          const installedBuild = clientInfo?.build ?? 'unknown/older extension';
+          const error = installedBuild === 'unknown/older extension'
+            ? 'The connected Spicetify extension is an older build and does not report its version. Reinstall the latest Flux Star Stream extension and fully restart Spotify.'
+            : `The connected Spicetify extension is outdated (build ${installedBuild}; expected ${BRIDGE_BUILD}). Reinstall the latest Flux Star Stream extension and fully restart Spotify.`;
+          console.error('[bridge] Search blocked because the installed extension version is not current.', {
+            expectedBuild: BRIDGE_BUILD,
+            installedBuild,
+            action: 'Run the setup installer from the newly rebuilt Flux Star Stream app, then fully restart Spotify.'
+          });
+          reject(new BridgeError(error));
+          return;
+        }
+        console.info('[bridge] Sending search request to Spotify.', { id, extensionBuild: clientInfo.build });
+      }
       socket.send(JSON.stringify({ id, cmd: command, args }));
     });
   }
@@ -83,6 +112,8 @@ export class BridgeModel {
   private attach(socket: WebSocket): void {
     this.socket?.close(); // if Spotify was restarted, the newest connection wins
     this.socket = socket;
+    this.clientInfo = null;
+    console.info('[bridge] Spotify extension connected; waiting for its version handshake.');
 
     socket.on('message', (raw) => this.handleMessage(raw));
     socket.on('error', () => socket.close());
@@ -94,18 +125,48 @@ export class BridgeModel {
   }
 
   private handleMessage(raw: RawData): void {
-    let message: { id?: unknown; ok?: boolean; data?: unknown; error?: { message?: string; status?: number } };
+    let message: { type?: unknown; name?: unknown; version?: unknown; build?: unknown; id?: unknown; ok?: boolean; data?: unknown; error?: { message?: string; status?: number } };
     try {
       message = JSON.parse(raw.toString());
     } catch {
       return;
     }
-    if (typeof message.id !== 'number') return; // e.g. the extension's hello
+    if (message.type === 'hello' && message.name === 'fluxBridge') {
+      this.clientInfo = {
+        name: 'fluxBridge',
+        version: typeof message.version === 'number' ? message.version : null,
+        build: typeof message.build === 'string' ? message.build : null
+      };
+      if (this.clientInfo.build !== BRIDGE_BUILD) {
+        console.error('[bridge] OUTDATED Spicetify extension detected.', {
+          expectedBuild: BRIDGE_BUILD,
+          installedBuild: this.clientInfo.build ?? '(build not reported)',
+          installedProtocolVersion: this.clientInfo.version,
+          action: 'Run the Flux Star Stream setup installer again, then restart Spotify.'
+        });
+      } else {
+        console.info('[bridge] Spicetify extension version verified.', this.clientInfo);
+      }
+      return;
+    }
+    if (typeof message.id !== 'number') return;
 
     const pending = this.pending.get(message.id);
     if (!pending) return;
     this.pending.delete(message.id);
     clearTimeout(pending.timer);
+
+    if (pending.command === 'searchTracks') {
+      const data = message.data;
+      console.info('[bridge] Search response received.', {
+        elapsedMs: Date.now() - pending.startedAt,
+        extensionBuild: this.clientInfo?.build ?? '(unknown)',
+        ok: Boolean(message.ok),
+        resultType: Array.isArray(data) ? 'array' : data === null ? 'null' : typeof data,
+        resultCount: Array.isArray(data) ? data.length : undefined,
+        error: message.error?.message
+      });
+    }
 
     if (message.ok) pending.resolve(message.data ?? null);
     else pending.reject(new BridgeError(message.error?.message ?? 'Spotify refused the request.', message.error?.status));

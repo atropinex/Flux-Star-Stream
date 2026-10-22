@@ -15,6 +15,7 @@
   const ADDRESS = `ws://127.0.0.1:${PORT}`;
   const RETRY_MS = 3000;
   const PLAY_CHECK_MS = 1000;
+  const BRIDGE_BUILD = 'search-results-v6';
 
   // Spicetify loads extensions before Spotify is ready, so wait for it.
   if (!window.Spicetify || !Spicetify.Player || !Spicetify.Platform || !Spicetify.CosmosAsync) {
@@ -239,6 +240,7 @@
       if (!query) return [];
 
       const limit = Math.max(1, Math.min(50, Number(args.limit) || 10));
+      const searchFailures = [];
 
       // Spotify changes the shape of search payloads between desktop versions.
       // Walk common wrappers instead of assuming every result is in tracks.items.
@@ -268,48 +270,205 @@
       };
 
       const normalizeTrack = (entry) => {
-        let item = entry;
-        for (let depth = 0; depth < 6; depth++) {
-          const nested = item?.track || item?.item || item?.data?.track || item?.data?.item ||
-            item?.data || item?.content || item?.entity;
-          if (!nested || nested === item || typeof nested !== 'object') break;
-          item = nested;
-        }
-        const meta = item?.metadata || {};
-        const rawUri = item?.uri || meta.uri || item?.link?.uri || item?.data?.uri;
-        const rawId = item?.id || item?.uid || item?.gid || item?.trackId || meta.id ||
-          (typeof rawUri === 'string' ? rawUri.match(/(?:spotify:track:|open\.spotify\.com\/track\/)([A-Za-z0-9]+)/)?.[1] : '');
-        const id = rawId || (typeof rawUri === 'string' ? rawUri.split(':').pop().split('?')[0] : '');
-        const uri = typeof rawUri === 'string' && rawUri.startsWith('spotify:track:')
-          ? rawUri.split('?')[0]
-          : id ? `spotify:track:${id}` : '';
-        const rawName = item?.name ?? item?.title ?? meta.title;
-        const name = typeof rawName === 'string' ? rawName : rawName?.text || '';
-        if (!uri || uri === 'spotify:track:' || !name) return null;
+        // Search results can wrap a real track in item/data/track objects. Prefer
+        // the first object that actually contains both a track URI/ID and a title,
+        // rather than blindly descending into data and losing fields from its parent.
+        const candidates = [];
+        const visited = new Set();
+        const visit = (value, depth = 0) => {
+          if (!value || typeof value !== 'object' || depth > 8 || visited.has(value)) return;
+          visited.add(value);
+          candidates.push(value);
+          for (const key of ['track', 'item', 'data', 'content', 'entity', 'metadata']) {
+            const child = value[key];
+            if (child && typeof child === 'object') visit(child, depth + 1);
+          }
+        };
+        visit(entry);
 
-        const rawArtists = item?.artists?.items || item?.artists?.data || item?.artists || meta.artists || [];
+        const textValue = (value) => {
+          if (typeof value === 'string') return value;
+          if (!value || typeof value !== 'object') return '';
+          return value.text || value.title || value.name || value.default || '';
+        };
+        const asTrackUri = (value) => {
+          if (typeof value !== 'string') return '';
+          const spotifyUri = value.match(/spotify:track:([A-Za-z0-9]+)/);
+          if (spotifyUri) return `spotify:track:${spotifyUri[1]}`;
+          const webUri = value.match(/open\.spotify\.com\/(?:intl-[^\/]+\/)?track\/([A-Za-z0-9]+)/);
+          if (webUri) return `spotify:track:${webUri[1]}`;
+          return '';
+        };
+
+        let item = null;
+        let rawUri = '';
+        let name = '';
+        for (const candidate of candidates) {
+          const meta = candidate.metadata || {};
+          const uri = asTrackUri(candidate.uri || candidate.link?.uri || candidate.playableUri ||
+            candidate.canonicalUri || meta.uri || candidate.data?.uri);
+          const title = textValue(candidate.name) || textValue(candidate.title) ||
+            textValue(meta.title) || textValue(candidate.data?.name) || textValue(candidate.data?.title);
+          if (uri && title) {
+            item = candidate;
+            rawUri = uri;
+            name = title;
+            break;
+          }
+        }
+
+        if (!item) {
+          // Some Spotify builds expose a base62 track ID separately from the URI.
+          for (const candidate of candidates) {
+            const meta = candidate.metadata || {};
+            const idValue = candidate.id || candidate.uid || candidate.gid || candidate.trackId || meta.id;
+            const id = typeof idValue === 'string' && /^([A-Za-z0-9]{22})$/.test(idValue)
+              ? idValue
+              : typeof idValue === 'string' && /^spotify:track:[A-Za-z0-9]+$/.test(idValue)
+                ? idValue.split(':').pop()
+                : '';
+            const title = textValue(candidate.name) || textValue(candidate.title) ||
+              textValue(meta.title) || textValue(candidate.data?.name) || textValue(candidate.data?.title);
+            if (id && title) {
+              item = candidate;
+              rawUri = `spotify:track:${id}`;
+              name = title;
+              break;
+            }
+          }
+        }
+
+        if (!item || !rawUri || !name) return null;
+        const meta = item.metadata || {};
+        const rawArtists = item.artists?.items || item.artists?.data || item.artists ||
+          item.artistsNames || meta.artists || meta.artist_name || [];
         const artists = (Array.isArray(rawArtists) ? rawArtists : [rawArtists])
           .map((artist) => ({
             name: typeof artist === 'string'
               ? artist
-              : artist?.name || artist?.profile?.name || artist?.metadata?.name || artist?.name?.text || ''
+              : textValue(artist?.name) || textValue(artist?.profile?.name) ||
+                textValue(artist?.metadata?.name) || textValue(artist?.artistName)
           }))
           .filter((artist) => artist.name);
-        if (!artists.length && meta.artist_name) artists.push({ name: meta.artist_name });
+        if (!artists.length && typeof meta.artist_name === 'string') artists.push({ name: meta.artist_name });
 
-        const image = item?.album?.images || item?.albumOfTrack?.coverArt?.sources ||
-          item?.images || item?.album?.image || meta.image_xlarge_url || meta.image_large_url || meta.image_url;
+        const image = item.album?.images || item.albumOfTrack?.coverArt?.sources ||
+          item.images || item.album?.image || item.coverArt?.sources ||
+          meta.image_xlarge_url || meta.image_large_url || meta.image_url;
+        const id = rawUri.split(':').pop();
         return {
-          id: id || uri.split(':').pop(),
-          uri,
+          id,
+          uri: rawUri,
           name,
           type: 'track',
-          is_local: Boolean(item?.is_local),
-          duration_ms: item?.duration_ms || item?.duration?.milliseconds || item?.duration?.totalMilliseconds || 0,
+          is_local: Boolean(item.is_local || item.isLocal),
+          duration_ms: item.duration_ms || item.duration?.milliseconds || item.duration?.totalMilliseconds || 0,
           artists,
           album: { images: normalizeImages(image) }
         };
       };
+
+      // Spicetify v3 may not expose GraphQL.Definitions, so provide persisted
+      // operations with known hashes and the variables required by each operation.
+      // Both operations return data.searchV2.topResultsV2.itemsV2.
+      const spotifyGraphQL = Spicetify.GraphQL;
+      if (spotifyGraphQL && typeof spotifyGraphQL.Request === 'function') {
+        const searchDefinitions = [
+          {
+            name: 'searchSuggestions',
+            hash: '9fe3ad78e43a1684b3a9fabc741c5928928d4d30d7d8fd7fd193c7ebb4a544f4',
+            variables: {
+              query,
+              limit: 30,
+              numberOfTopResults: 30,
+              offset: 0,
+              includeAuthors: true,
+              includeAlbumPreReleases: true,
+              includeEpisodeContentRatingsV2: true
+            }
+          },
+          {
+            name: 'searchModalResults',
+            hash: '5c10c8121738f9a0e7c685984d237cde29812448b2f87b8b94e85fb52f645fd0',
+            variables: {
+              searchTerm: query,
+              limit: 50,
+              numberOfTopResults: Math.min(50, Math.max(limit, limit * 4)),
+              offset: 0,
+              includeAudiobooks: true,
+              includeAuthors: true,
+              includePreRelease: true,
+              includeArtistHasConcertsField: false
+            }
+          }
+        ];
+
+        for (const searchDefinition of searchDefinitions) {
+          try {
+            const definition = spotifyGraphQL.Definitions?.[searchDefinition.name] || {
+              name: searchDefinition.name,
+              operation: 'query',
+              sha256Hash: searchDefinition.hash,
+              value: null
+            };
+            const result = await spotifyGraphQL.Request(definition, searchDefinition.variables);
+            const payload = result?.data || result;
+            const items = payload?.searchV2?.topResultsV2?.itemsV2 ||
+              payload?.searchV2?.tracksV2?.items ||
+              payload?.searchV2?.tracks?.items ||
+              [];
+            const entries = items.map((entry) =>
+              entry?.item?.data || entry?.data || entry?.track?.data || entry?.track || entry?.item || entry
+            );
+            const tracks = [...new Map(
+              [...entries, ...collectEntries(payload)]
+                .map(normalizeTrack)
+                .filter((track) => track && track.uri)
+                .map((track) => [track.uri, track])
+            ).values()];
+            if (tracks.length) {
+              console.info('[fluxBridge] Spotify GraphQL search succeeded', {
+                operation: searchDefinition.name,
+                query,
+                resultCount: tracks.length,
+                itemCount: items.length
+              });
+              return tracks.slice(0, limit);
+            }
+
+            const detail = payload?.errors?.map((error) => error?.message || String(error)).join('; ');
+            searchFailures.push(
+              searchDefinition.name + ': no usable tracks' + (detail ? ' (' + detail + ')' : '')
+            );
+            console.warn('[fluxBridge] Spotify GraphQL search returned no usable tracks', {
+              operation: searchDefinition.name,
+              query,
+              itemCount: items.length,
+              errors: payload?.errors,
+              payloadKeys: payload && typeof payload === 'object' ? Object.keys(payload) : typeof payload,
+              responsePreview: payload && typeof payload === 'object'
+                ? JSON.stringify(payload, null, 2)?.slice(0, 1800)
+                : String(payload)
+            });
+          } catch (error) {
+            const detail = {
+              name: error?.name,
+              message: error?.message || String(error),
+              status: error?.status || error?.statusCode || error?.response?.status,
+              code: error?.code
+            };
+            searchFailures.push(
+              searchDefinition.name + ': ' +
+              (detail.status ? 'HTTP ' + detail.status + ' ' : '') + detail.message
+            );
+            console.warn('[fluxBridge] Spotify GraphQL request failed', {
+              operation: searchDefinition.name,
+              query,
+              error: detail
+            });
+          }
+        }
+      }
 
       if (Spicetify.Search && typeof Spicetify.Search.search === 'function') {
         try {
@@ -321,6 +480,7 @@
               .map((track) => [track.uri, track])
           ).values()];
           if (tracks.length) return tracks.slice(0, limit);
+          searchFailures.push('Spicetify.Search.search returned no normalizable tracks');
           console.warn('[fluxBridge] Search.search returned an unrecognized result shape', {
             query,
             isArray: Array.isArray(result),
@@ -333,6 +493,7 @@
             firstItemKeys: Array.isArray(result) && result[0] && typeof result[0] === 'object' ? Object.keys(result[0]) : undefined
           });
         } catch (error) {
+          searchFailures.push(`Spicetify.Search.search: ${error?.message || String(error)}`);
           console.warn('[fluxBridge] client search failed; trying Spotify API', error);
         }
       }
@@ -348,6 +509,8 @@
             .map((track) => [track.uri, track])
         ).values()];
         if (tracks.length) return tracks.slice(0, limit);
+        const apiError = result && typeof result === 'object' && (result.code || result.error || result.message);
+        searchFailures.push(`Spotify Web API: ${result?.message || result?.error || (result?.code ? `code ${result.code}` : 'no recognizable tracks')}`);
         console.warn('[fluxBridge] Spotify API search returned no recognizable tracks', {
           query,
           resultKeys: result && typeof result === 'object' ? Object.keys(result) : typeof result,
@@ -358,10 +521,12 @@
             ? JSON.stringify(result, null, 2)?.slice(0, 4000)
             : String(result)
         });
-        return [];
+        if (apiError) throw new Error(`Spotify search failed: ${result.message || result.error || result.code}`);
+        throw new Error('Spotify search returned no usable track results.');
       } catch (error) {
-        console.error('[fluxBridge] Spotify API search failed', error);
-        throw error;
+        const message = error?.message || String(error);
+        console.error('[fluxBridge] Spotify API search failed', { query, error, earlierFailures: searchFailures });
+        throw new Error(`${message}${searchFailures.length ? `. Earlier search failures: ${searchFailures.join(' | ')}` : ''}`);
       }
     },
 
@@ -433,7 +598,8 @@
 
     connection.onopen = () => {
       console.info('[fluxBridge] Connected to Star Stream bridge.');
-      connection.send(JSON.stringify({ type: 'hello', name: 'fluxBridge', version: 1 }));
+      connection.send(JSON.stringify({ type: 'hello', name: 'fluxBridge', version: 1, build: BRIDGE_BUILD }));
+      console.info('[fluxBridge] Bridge build:', BRIDGE_BUILD);
     };
     connection.onmessage = handleMessage;
     connection.onerror = (event) => {
