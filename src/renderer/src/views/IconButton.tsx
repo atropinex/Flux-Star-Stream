@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import './IconButton.css';
 
 interface Props {
   label: string;      // shown as a tooltip and read by screen readers
