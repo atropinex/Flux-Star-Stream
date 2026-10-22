@@ -45,6 +45,13 @@ export default function App() {
   const list = useTrackList(library.selected, query, toast.show, library.version);
   const selection = useSelection(list.tracks.length, list.tracks);
   const player = usePlayback(isLoggedIn && isVisible, toast.show);
+  useEffect(() => {
+    if (!settings || !isVisible) return;
+    void window.api.bridgeRequest('configureCrossfade', {
+      enabled: settings.crossfadeEnabled,
+      seconds: settings.crossfadeSeconds
+    });
+  }, [settings?.crossfadeEnabled, settings?.crossfadeSeconds, isVisible]);
   const positionMs = useProgress(player.playback);
   const playing = usePlayingTracks(player.playback, library.playlists, library.version);
 
