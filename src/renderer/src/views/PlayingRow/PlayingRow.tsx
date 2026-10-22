@@ -4,22 +4,22 @@ import './PlayingRow.css';
 
 interface Props {
   tracks: Track[];
-  selectedIndex: number; // the card in the middle (scrollable)
-  playingIndex: number;  // the song that is playing
+  selectedIndex: number;
+  playingIndex: number;
   listKey: string;
-  heading: string;       // name of the playlist it is playing from
+  heading: string;
   hasPlayback: boolean;
   isLoading: boolean;
+  canvasUrl?: string | null;
   onSelect: (index: number) => void;
   onActivate: (index: number) => void;
 }
 
 /** The large row: the songs of the playlist that is playing. Scroll it, and click a song to play it. */
-export function PlayingRow({ tracks, selectedIndex, playingIndex, listKey, heading, hasPlayback, isLoading, onSelect, onActivate }: Props) {
+export function PlayingRow({ tracks, selectedIndex, playingIndex, listKey, heading, hasPlayback, isLoading, canvasUrl, onSelect, onActivate }: Props) {
   return (
     <section className="playing-row">
       <p className="row-caption">Playing from <b key={heading} className="fade-in">{heading}</b></p>
-
       <BannerRow
         size="large"
         listKey={listKey}
@@ -31,10 +31,21 @@ export function PlayingRow({ tracks, selectedIndex, playingIndex, listKey, headi
           label: track.name,
           isPlaying: index === playingIndex
         }))}
-        onSelect={onSelect}     // first click centers a song
-        onActivate={onActivate} // clicking the centered song plays it
+        onSelect={onSelect}
+        onActivate={onActivate}
       />
-
+      {canvasUrl && tracks.length > 0 && (
+        <video
+          className="playing-canvas"
+          key={canvasUrl}
+          src={canvasUrl}
+          autoPlay
+          loop
+          muted
+          playsInline
+          aria-label="Spotify Canvas"
+        />
+      )}
       {!hasPlayback && <p className="empty-hint">Nothing playing yet. Pick a song in the preview and press Enter.</p>}
     </section>
   );
