@@ -50,26 +50,39 @@ export async function fetchPlaylists(): Promise<Playlist[]> {
 /** Loads the songs of one playlist. Spotify only allows this for playlists you own or collaborate on. */
 export async function fetchPlaylistTracks(playlistId: string): Promise<Track[]> {
   const tracks: Track[] = [];
+  let clientTracks: Track[] = [];
+
   try {
-    const clientTracks = await bridge('playlistTracks', { id: playlistId }) as Track[] | null;
-    if (clientTracks?.length) return clientTracks.slice(0, MAX_TRACKS);
+    const result = await bridge('playlistTracks', { id: playlistId });
+    if (Array.isArray(result)) clientTracks = result as Track[];
+
+    // A short bridge response may contain only the current song. Try the Web API
+    // before treating it as the whole playlist.
+    if (clientTracks.length >= 10) return clientTracks.slice(0, MAX_TRACKS);
   } catch (error) {
     console.warn('[Star Stream] Spicetify playlist-track command unavailable; trying Web API.', error);
   }
 
   let url: string | null = `/playlists/${playlistId}/items?limit=50`;
 
-  while (url && tracks.length < MAX_TRACKS) {
-    const page = await spotifyRequest<Page<PlaylistEntry>>(url);
-    if (!page) break;
+  try {
+    while (url && tracks.length < MAX_TRACKS) {
+      const page = await spotifyRequest<Page<PlaylistEntry>>(url);
+      if (!page) break;
 
-    for (const entry of pageItems(page)) {
-      const track = entry.item ?? entry.track;
-      if (track && track.type === 'track' && !track.is_local) tracks.push(track);
+      for (const entry of pageItems(page)) {
+        const track = entry.item ?? entry.track;
+        if (track && track.type === 'track' && !track.is_local) tracks.push(track);
+      }
+      url = nextPage(page);
     }
-    url = nextPage(page);
+  } catch (error) {
+    console.warn('[Star Stream] Could not load all playlist tracks from the Web API.', error);
   }
-  return tracks;
+
+  // Prefer the more complete source, but retain the bridge result if the API
+  // is unavailable or returns fewer tracks.
+  return (tracks.length > clientTracks.length ? tracks : clientTracks).slice(0, MAX_TRACKS);
 }
 
 export async function searchTracks(query: string): Promise<Track[]> {
