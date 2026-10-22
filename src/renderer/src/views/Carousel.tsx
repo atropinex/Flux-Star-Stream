@@ -24,7 +24,8 @@ export function Carousel({ tracks, selectedIndex, listKey, heading, playingTrack
   let title = selected?.name ?? heading;
   let subtitle = selected ? `${selected.artists.map((a) => a.name).join(', ')} · ${heading}` : '\u00a0';
   if (!selected && isLoading) subtitle = 'Loading…';
-  if (!selected && !isLoading && isSearching) subtitle = 'No songs found';
+  if (!selected && !isLoading && hasFailed && isSearching) subtitle = 'Search failed. Check Spotify connection and the app logs.';
+  else if (!selected && !isLoading && isSearching) subtitle = 'No songs found';
   if (!selected && !isLoading && hasFailed && !isSearching) subtitle = 'Spotify only shares songs of playlists you own or collaborate on.';
 
   return (
