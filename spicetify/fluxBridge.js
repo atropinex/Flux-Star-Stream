@@ -314,7 +314,12 @@
       if (Spicetify.Search && typeof Spicetify.Search.search === 'function') {
         try {
           const result = await Spicetify.Search.search(query, ['track'], limit, 0);
-          const tracks = collectEntries(result).map(normalizeTrack).filter(Boolean);
+          const tracks = [...new Map(
+            collectEntries(result)
+              .map(normalizeTrack)
+              .filter((track) => track && track.uri)
+              .map((track) => [track.uri, track])
+          ).values()];
           if (tracks.length) return tracks.slice(0, limit);
           console.warn('[fluxBridge] Search.search returned an unrecognized result shape', {
             query,
@@ -336,7 +341,12 @@
         const result = await Spicetify.CosmosAsync.get(
           `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`
         );
-        const tracks = collectEntries(result).map(normalizeTrack).filter(Boolean);
+        const tracks = [...new Map(
+          collectEntries(result)
+            .map(normalizeTrack)
+            .filter((track) => track && track.uri)
+            .map((track) => [track.uri, track])
+        ).values()];
         if (tracks.length) return tracks.slice(0, limit);
         console.warn('[fluxBridge] Spotify API search returned no recognizable tracks', {
           query,
