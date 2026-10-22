@@ -3,6 +3,7 @@ import type { AppSettings, Theme, UpdatableSettings } from '../../../shared/type
 import { describeAccelerator, toAccelerator } from '../utils/accelerator';
 import { IconButton } from './IconButton';
 import { CloseIcon } from './Icons';
+import './SettingsPanel.css';
 
 interface Props {
   settings: AppSettings;
