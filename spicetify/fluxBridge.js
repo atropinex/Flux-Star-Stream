@@ -235,33 +235,60 @@
       }).filter(Boolean);
     },
     async searchTracks(args) {
-      const limit = args.limit || 10;
+      const query = String(args.query || '').trim();
+      if (!query) return [];
+
+      const limit = Math.max(1, Math.min(50, Number(args.limit) || 10));
+      const normalizeTrack = (entry) => {
+        // Spotify client search responses have used both direct track objects and nested data wrappers.
+        const item = entry?.track || entry?.item || entry?.data?.track || entry?.data || entry;
+        const meta = item?.metadata || {};
+        const uri = item?.uri || meta.uri;
+        if (!uri || !String(uri).startsWith('spotify:track:')) return null;
+
+        const rawArtists = item?.artists || meta.artists || [];
+        const artists = (Array.isArray(rawArtists) ? rawArtists : [rawArtists])
+          .map((artist) => ({
+            name: typeof artist === 'string'
+              ? artist
+              : artist?.name || artist?.profile?.name || artist?.metadata?.name || ''
+          }))
+          .filter((artist) => artist.name);
+        if (!artists.length && meta.artist_name) {
+          artists.push({ name: meta.artist_name });
+        }
+
+        const image = item?.album?.images || item?.images || item?.album?.image ||
+          meta.image_xlarge_url || meta.image_large_url || meta.image_url;
+        return {
+          id: item?.id || uri.split(':').pop(),
+          uri,
+          name: item?.name || item?.title || meta.title || '',
+          type: 'track',
+          is_local: Boolean(item?.is_local),
+          duration_ms: item?.duration_ms || item?.duration?.milliseconds || 0,
+          artists,
+          album: { images: normalizeImages(image) }
+        };
+      };
+
       if (Spicetify.Search && typeof Spicetify.Search.search === 'function') {
         try {
-          const result = await Spicetify.Search.search(args.query, ['track'], limit, 0);
-          const items = result?.tracks?.items || result?.tracks || [];
-          const tracks = items.map((entry) => {
-            const item = entry?.track || entry;
-            const artists = item?.artists || item?.metadata?.artists || [];
-            const image = item?.album?.images || item?.images || item?.album?.image;
-            return {
-              id: item?.id || item?.uri?.split(':').pop(),
-              uri: item?.uri,
-              name: item?.name || item?.title || item?.metadata?.title || '',
-              type: 'track',
-              is_local: Boolean(item?.is_local),
-              duration_ms: item?.duration_ms || item?.duration?.milliseconds || 0,
-              artists: artists.map((artist) => ({ name: typeof artist === 'string' ? artist : artist.name || artist.profile?.name || '' })).filter((artist) => artist.name),
-              album: { images: normalizeImages(image) }
-            };
-          }).filter((item) => item.id && item.uri);
+          const result = await Spicetify.Search.search(query, ['track'], limit, 0);
+          const items = result?.tracks?.items || result?.tracks?.data?.items || result?.tracks || [];
+          const tracks = (Array.isArray(items) ? items : []).map(normalizeTrack).filter(Boolean);
           if (tracks.length) return tracks;
         } catch (error) {
           console.warn('[fluxBridge] client search failed; trying Spotify API', error);
         }
       }
-      const result = await Spicetify.CosmosAsync.get(`https://api.spotify.com/v1/search?q=${encodeURIComponent(args.query)}&type=track&limit=${limit}`);
-      return result?.tracks?.items || [];
+
+      // Keep the same track shape regardless of which Spotify search endpoint answered.
+      const result = await Spicetify.CosmosAsync.get(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`
+      );
+      const items = result?.tracks?.items || result?.tracks?.data?.items || result?.data?.tracks?.items || [];
+      return (Array.isArray(items) ? items : []).map(normalizeTrack).filter(Boolean);
     },
 
     /** Spotify's web endpoints (search, playlists), sent with the Spotify app's own login. */
