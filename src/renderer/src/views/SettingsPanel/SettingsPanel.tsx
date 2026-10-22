@@ -70,6 +70,20 @@ export function SettingsPanel({ settings, themes, themeErrors, onShortcut, onUpd
         </section>
 
         <section>
+          <h3>Playback</h3>
+          <label className="switch">
+            Crossfade between songs
+            <input type="checkbox" checked={settings.crossfadeEnabled} onChange={(event) => onUpdate({ crossfadeEnabled: event.target.checked })} />
+          </label>
+          <label className="slider">
+            <span>Transition timing <b>{settings.crossfadeSeconds}s</b></span>
+            <input type="range" min="0" max="12" step="1" value={settings.crossfadeSeconds} disabled={!settings.crossfadeEnabled} onChange={(event) => onUpdate({ crossfadeSeconds: Number(event.target.value) })} />
+          </label>
+          <p className="note">Set Spotify's own Crossfade songs option in Settings → Playback to enable the actual audio overlap. This controller skips to the next song early so Spotify can crossfade.</p>
+          <p className="note">Equalizer controls aren't exposed by Spotify's current player API, so an in-app EQ can't be applied reliably.</p>
+        </section>
+
+        <section>
           <h3>Spotify app</h3>
           <label className="switch">
             Minimize it when the overlay opens
