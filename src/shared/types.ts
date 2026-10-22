@@ -1,6 +1,7 @@
 export interface AppSettings {
   shortcut: string;         // Electron accelerator, e.g. "CommandOrControl+Alt+M"
   minimizeSpotify: boolean; // minimize the Spotify app when the overlay opens
+  showCanvas: boolean;      // play Spotify Canvas on the currently playing banner when available
   theme: string;            // id of a theme file (its name without .yaml)
 }
 
