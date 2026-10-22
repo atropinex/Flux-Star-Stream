@@ -20,6 +20,8 @@
 .banner-row.small .card { border-radius: 3px; box-shadow: 0 8px 18px rgba(0,0,0,.45); }
 .card.selected { outline-color: rgba(255,255,255,.4); }
 .card.playing { box-shadow: 0 0 0 1px var(--accent), 0 14px 34px rgba(0,0,0,.5); }
+.card-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.card.has-canvas { background-image: none !important; }
 
 .card-label {
   position: absolute; left: 0; right: 0; bottom: 0;
