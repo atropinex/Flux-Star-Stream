@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import { ensureSpicetifyReady } from './models/SpicetifySetup';
 import { BridgeModel } from './models/BridgeModel';
 import { SettingsModel } from './models/SettingsModel';
 import { SpotifyApp } from './models/SpotifyApp';
@@ -10,7 +11,12 @@ import { TrayController } from './controllers/TrayController';
 // Only one copy may run, otherwise two overlays would fight over the keybind.
 if (!app.requestSingleInstanceLock()) app.quit();
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (!(await ensureSpicetifyReady())) {
+    app.quit();
+    return;
+  }
+
   app.dock?.hide(); // macOS: no Dock icon, like an overlay
 
   const settings = new SettingsModel();

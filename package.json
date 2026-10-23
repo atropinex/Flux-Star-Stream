@@ -43,10 +43,6 @@
     ],
     "extraResources": [
       {
-        "from": "installer/Install-Flux-Star-Stream.bat",
-        "to": "flux-setup/Install-Flux-Star-Stream.bat"
-      },
-      {
         "from": "spicetify/fluxBridge.js",
         "to": "flux-setup/fluxBridge.js"
       }
