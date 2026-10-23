@@ -6,6 +6,8 @@ import type { AppSettings } from '../../shared/types';
 const DEFAULTS: AppSettings = {
   shortcut: 'CommandOrControl+Alt+M',
   minimizeSpotify: true,
+  crossfadeEnabled: false,
+  crossfadeSeconds: 6,
   theme: 'default'
 };
 
