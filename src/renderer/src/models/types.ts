@@ -34,6 +34,13 @@ export interface Device {
 
 export type RepeatState = 'off' | 'context' | 'track'; // 'context' = loop the playlist
 
+/** The play queue, split the way Spotify shows it. */
+export interface QueueInfo {
+  current: Track | null;
+  queued: Track[]; // songs added to the queue by hand
+  upNext: Track[]; // what comes next from the playlist or album
+}
+
 /** What is playing, as the player bar needs it. */
 export interface PlaybackState {
   track: Track;

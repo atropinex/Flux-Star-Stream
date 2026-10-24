@@ -1,26 +1,28 @@
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type MouseEvent } from 'react';
 import type { PlaybackState } from '../../models/types';
+import { useProgress } from '../../controllers/useProgress';
 import { formatTime } from '../../utils/formatTime';
 import { IconButton } from '../IconButton/IconButton';
-import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, RepeatIcon, ShuffleIcon, VolumeIcon } from '../Icons';
+import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, QueueIcon, RepeatIcon, ShuffleIcon, VolumeIcon } from '../Icons';
 import './PlayerBar.css';
 
 const VOLUME_DELAY_MS = 150;
 
 interface Props {
   playback: PlaybackState | null;
-  positionMs: number;
   onTogglePlay: () => void;
   onNext: () => void;
   onPrevious: () => void;
   onShuffle: () => void;
   onLoop: () => void;
+  onOpenQueue: () => void;
   onSeek: (fraction: number) => void;
   onVolume: (percent: number) => void;
 }
 
 /** The "now playing" bar: song on the left, controls and progress in the middle, volume on the right. */
-export function PlayerBar({ playback, positionMs, onTogglePlay, onNext, onPrevious, onShuffle, onLoop, onSeek, onVolume }: Props) {
+export function PlayerBar({ playback, onTogglePlay, onNext, onPrevious, onShuffle, onLoop, onOpenQueue, onSeek, onVolume }: Props) {
+  const positionMs = useProgress(playback); // only this bar re-renders as the time moves
   const [volume, setVolume] = useState(60);
   const volumeBeforeMute = useRef(50);
   const isDraggingVolume = useRef(false);
@@ -106,6 +108,7 @@ export function PlayerBar({ playback, positionMs, onTogglePlay, onNext, onPrevio
 
       <div className="volume-block">
         <div className="volume">
+          <IconButton label="Queue" onClick={onOpenQueue}><QueueIcon size={18} /></IconButton>
           <IconButton label={volume === 0 ? 'Unmute' : 'Mute'} onClick={toggleMute}><VolumeIcon level={volumeLevel} size={18} /></IconButton>
           <input
             className="volume-slider"

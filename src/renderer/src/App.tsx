@@ -5,7 +5,7 @@ import { useOverlayVisible } from './controllers/useOverlayVisible';
 import { usePlaylists } from './controllers/usePlaylists';
 import { usePlayback } from './controllers/usePlayback';
 import { usePlayingTracks } from './controllers/usePlayingTracks';
-import { useProgress } from './controllers/useProgress';
+import { useQueue } from './controllers/useQueue';
 import { useSelection } from './controllers/useSelection';
 import { useSettings } from './controllers/useSettings';
 import { useTheme } from './controllers/useTheme';
@@ -20,6 +20,7 @@ import { LoginScreen } from './views/LoginScreen/LoginScreen';
 import { PlayerBar } from './views/PlayerBar/PlayerBar';
 import { PlayingRow } from './views/PlayingRow/PlayingRow';
 import { PlaylistRow } from './views/PlaylistRow/PlaylistRow';
+import { QueuePanel } from './views/QueuePanel/QueuePanel';
 import { SettingsPanel } from './views/SettingsPanel/SettingsPanel';
 import { ThemeLayers } from './views/ThemeLayers/ThemeLayers';
 import { Toast } from './views/Toast/Toast';
@@ -39,6 +40,7 @@ export default function App() {
   const theme = useTheme(settings?.theme, isVisible);
   const [query, setQuery] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [dialog, setDialog] = useState<DialogState>(null);
 
   const library = usePlaylists(isLoggedIn, toast.show);
@@ -52,8 +54,8 @@ export default function App() {
       seconds: settings.crossfadeSeconds
     });
   }, [settings?.crossfadeEnabled, settings?.crossfadeSeconds, isVisible]);
-  const positionMs = useProgress(player.playback);
   const playing = usePlayingTracks(player.playback, library.playlists, library.version);
+  const queue = useQueue(isQueueOpen, player.playback?.track.uri);
 
   const selectedTrack = list.tracks[selection.index];
   // Each time the overlay opens, jump to the playlist that is playing.
@@ -112,7 +114,7 @@ export default function App() {
     library.move(step);
   };
 
-  const isModalOpen = isSettingsOpen || dialog !== null;
+  const isModalOpen = isSettingsOpen || isQueueOpen || dialog !== null;
 
   useCarouselInput({
     onMove: (step) => !isModalOpen && selection.move(step),
@@ -124,6 +126,7 @@ export default function App() {
       // Esc closes the top-most thing first, and the overlay last.
       if (dialog) setDialog(null);
       else if (isSettingsOpen) setIsSettingsOpen(false);
+      else if (isQueueOpen) setIsQueueOpen(false);
       else window.api.hideOverlay();
     }
   });
@@ -137,7 +140,10 @@ export default function App() {
       <ThemeLayers theme={theme.active} />
 
       <div className="panel">
-        <Header query={query} onQueryChange={setQuery} onOpenSettings={() => setIsSettingsOpen(true)} />
+        <Header query={query} onQueryChange={setQuery} onOpenSettings={() => {
+          setIsQueueOpen(false);
+          setIsSettingsOpen(true);
+        }} />
 
         <PlaylistRow
           playlists={library.playlists}
@@ -177,15 +183,28 @@ export default function App() {
 
         <PlayerBar
           playback={player.playback}
-          positionMs={positionMs}
           onTogglePlay={player.togglePlay}
           onNext={player.next}
           onPrevious={player.previous}
           onShuffle={player.toggleShuffle}
           onLoop={player.cycleRepeat}
+          onOpenQueue={() => {
+            setIsSettingsOpen(false);
+            setIsQueueOpen(true);
+          }}
           onSeek={player.seekToFraction}
           onVolume={player.setVolume}
         />
+
+        {isQueueOpen && (
+          <QueuePanel
+            queue={queue.queue}
+            isLoading={queue.isLoading}
+            error={queue.error}
+            contextName={playing.heading === 'Now playing' ? '' : playing.heading}
+            onClose={() => setIsQueueOpen(false)}
+          />
+        )}
 
         {isSettingsOpen && settings && (
           <SettingsPanel

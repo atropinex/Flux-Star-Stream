@@ -14,6 +14,6 @@
 .banner-row.small .eq i { width: 2px; }
 
 /* the list is replaced: dim the old cards while the new ones load */
-.banner-set { position: absolute; inset: 0; transform-style: preserve-3d; transition: opacity .3s ease, transform .3s ease; }
-.banner-row.loading .banner-set { opacity: .35; transform: scale(.98); }
+.banner-set { position: absolute; inset: 0; transition: opacity .3s ease, transform .3s ease; }
+.banner-row.loading .banner-set { opacity: .35; }
 

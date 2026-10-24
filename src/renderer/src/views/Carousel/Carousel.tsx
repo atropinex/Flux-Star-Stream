@@ -1,3 +1,4 @@
+import { useSettled } from '../../controllers/useSettled';
 import type { Track } from '../../models/types';
 import { BannerRow } from '../BannerRow/BannerRow';
 import { PlusIcon } from '../Icons';
@@ -20,10 +21,12 @@ interface Props {
 
 /** The preview: a smaller row with the songs of the playlist you are browsing, and the selected song's name. */
 export function Carousel({ tracks, selectedIndex, listKey, heading, playingTrackId, isLoading, hasFailed, isSearching, onSelect, onPlay, onPlayPlaylist, onAddToPlaylist }: Props) {
-  const selected = tracks[selectedIndex];
+  // The text under the row waits until you stop scrolling, so it does not flash on every step.
+  const selected = useSettled(tracks[selectedIndex], 120);
+  const shownHeading = useSettled(heading, 200);
 
   let title = selected?.name ?? heading;
-  let subtitle = selected ? `${selected.artists.map((a) => a.name).join(', ')} · ${heading}` : '\u00a0';
+  let subtitle = selected ? `${selected.artists.map((a) => a.name).join(', ')} · ${shownHeading}` : '\u00a0';
   if (!selected && isLoading) subtitle = 'Loading…';
   if (!selected && !isLoading && hasFailed && isSearching) subtitle = 'Search failed. Check Spotify connection and the app logs.';
   else if (!selected && !isLoading && isSearching) subtitle = 'No songs found';
@@ -31,7 +34,7 @@ export function Carousel({ tracks, selectedIndex, listKey, heading, playingTrack
 
   return (
     <section className="preview">
-      <p className="row-caption">Preview <b key={heading} className="fade-in">{heading}</b></p>
+      <p className="row-caption">Preview <b key={shownHeading} className="fade-in">{shownHeading}</b></p>
 
       <BannerRow
         size="medium"

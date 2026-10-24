@@ -209,6 +209,29 @@
       return player().setRepeat(args.state === 'track' ? 2 : args.state === 'context' ? 1 : 0);
     },
 
+    /** What is playing, the songs you queued, and what comes next from the playlist or album. */
+    async queue() {
+      const queue = Spicetify.Queue;
+      if (!queue) return { current: null, queued: [], upNext: [] };
+
+      // Some builds wrap each entry as { contextTrack }, others hand over the track directly.
+      const itemOf = (entry) => (entry && entry.contextTrack) || entry;
+      const asTrack = (entry) => {
+        const item = itemOf(entry);
+        return item && typeof item.uri === 'string' && item.uri.startsWith('spotify:track:') ? mapTrack(item) : null;
+      };
+
+      const queued = [];
+      const upNext = [];
+      for (const entry of queue.nextTracks || []) {
+        const track = asTrack(entry);
+        if (!track) continue; // skips the dividers Spotify puts between sections
+        const item = itemOf(entry);
+        ((item.provider || entry.provider) === 'queue' ? queued : upNext).push(track);
+      }
+      return { current: asTrack(queue.track), queued: queued.slice(0, 100), upNext: upNext.slice(0, 100) };
+    },
+
     // Use Spotify's in-client APIs for browsing; the public Web API endpoints can be
     // restricted or changed independently of the player in newer Spotify builds.
     async libraryPlaylists() {
