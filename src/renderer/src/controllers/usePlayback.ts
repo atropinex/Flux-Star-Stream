@@ -15,6 +15,21 @@ function uriOf(request: service.PlayRequest): string {
   return request.uris[request.offset?.position ?? 0] ?? request.uris[0];
 }
 
+/** True when a new reading says nothing that the last one did not. The progress bar estimates the position itself. */
+function isSamePlayback(a: PlaybackState, b: PlaybackState): boolean {
+  const estimated = a.positionMs + (a.isPlaying ? b.syncedAt - a.syncedAt : 0);
+  return (
+    a.track.uri === b.track.uri &&
+    a.isPlaying === b.isPlaying &&
+    a.isShuffled === b.isShuffled &&
+    a.repeatState === b.repeatState &&
+    a.volume === b.volume &&
+    a.durationMs === b.durationMs &&
+    a.contextUri === b.contextUri &&
+    Math.abs(b.positionMs - estimated) < 800 // a seek or a stall would be bigger than this
+  );
+}
+
 /** What the Spotify app is playing, and the commands that control it. */
 export function usePlayback(isActive: boolean, onError: (message: string) => void) {
   const [playback, setPlayback] = useState<PlaybackState | null>(null);
@@ -22,7 +37,7 @@ export function usePlayback(isActive: boolean, onError: (message: string) => voi
   const refresh = useCallback(async () => {
     try {
       const latest = await service.fetchPlayback();
-      if (latest) setPlayback(latest);
+      if (latest) setPlayback((previous) => (previous && isSamePlayback(previous, latest) ? previous : latest));
     } catch {
       // A failed poll is not worth interrupting the user for.
     }

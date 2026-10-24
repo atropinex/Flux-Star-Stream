@@ -14,7 +14,7 @@ Flux Star Stream does not host music, replace Spotify, or stream audio itself.
 - [Requirements](#requirements)
 - [Install and run from source](#install-and-run-from-source)
 - [Connect Spotify](#connect-spotify)
-- [Install the optional Spicetify bridge](#install-the-optional-spicetify-bridge)
+- [Spicetify setup](#spicetify-setup)
 - [Build the app](#build-the-app)
 - [Troubleshooting](#troubleshooting)
 - [Project structure](#project-structure)
@@ -28,7 +28,7 @@ Install these before setting up the project:
 1. **Node.js** — use a current LTS release.
 2. **npm** — included with Node.js.
 3. **Spotify desktop app** — needed for Spotify playback and for the optional Spicetify bridge.
-4. **Spicetify** — optional; needed only if you want to use the in-client bridge for library browsing and playback integration.
+4. **Spicetify** — required for the app's in-client Spotify integration. On Windows, the app checks for it at startup and offers to install it if missing.
 5. **Git** — optional, but recommended for cloning and updating the source.
 
 Check the first two installations:
@@ -91,72 +91,13 @@ Flux Star Stream controls Spotify playback; it does not play audio independently
 
 Depending on the Spotify account, device, and current API restrictions, some playback controls may not be available. The app does not guarantee that every playback action works with every account type.
 
-## Install the optional Spicetify bridge
+## Spicetify setup
 
-The bridge is an optional Spicetify extension located at `spicetify/fluxBridge.js`. It lets Flux Star Stream communicate with the Spotify desktop client using Spicetify's in-client APIs. It is especially useful for browsing playlists and searching tracks without relying exclusively on the public Web API.
+Spicetify is required for Flux Star Stream's desktop-client bridge. When the app opens, it checks whether Spicetify is installed. If it is missing, the app asks permission to run the official Spicetify installer. Afterward, the app copies `fluxBridge.js` into the Spicetify Extensions folder, preserves other configured extensions, and applies the configuration.
 
-### 1. Install Spotify and Spicetify
+If the app reports that Spicetify has not been initialized, run `spicetify` once in a terminal, then reopen Flux Star Stream. Keep Spotify and Flux Star Stream running on the same computer. The bridge communicates locally over `ws://127.0.0.1:52701`.
 
-Install the Spotify desktop app and follow the official Spicetify installation instructions:
-
-- [Spicetify documentation](https://spicetify.app/docs/)
-
-Run the following command to see your configured Spicetify extension directory:
-
-```bash
-spicetify path userdata
-```
-
-The extensions folder is normally inside the Spicetify user data directory, under `Extensions`. If you are unsure of the exact path, check your Spicetify configuration and documentation.
-
-### 2. Copy the bridge file
-
-Copy `spicetify/fluxBridge.js` from this repository into your Spicetify `Extensions` folder. Make sure the installed filename is exactly:
-
-```text
-fluxBridge.js
-```
-
-For example, on Windows the destination is commonly similar to:
-
-```text
-% AppData %\Roaming\spicetify\Extensions\fluxBridge.js
-```
-
-Use the actual path reported by your Spicetify installation if it differs.
-
-### 3. Enable the extension
-
-Run these commands in a terminal:
-
-```bash
-spicetify config extensions fluxBridge.js
-spicetify apply
-```
-
-If you already have other Spicetify extensions configured, preserve their entries when changing the extension configuration. Do not replace the entire extensions list unintentionally.
-
-Restart Spotify after applying the configuration if the extension does not load.
-
-### 4. Start Flux Star Stream
-
-Start the desktop app with `npm run dev`. The bridge reconnects automatically while it is running and attempts to connect to the app at:
-
-```text
-ws://127.0.0.1:52701
-```
-
-Keep Spotify and Flux Star Stream running on the same computer. The bridge is designed for local communication and is not intended to be exposed to the network.
-
-### Updating the bridge
-
-When the repository's `spicetify/fluxBridge.js` changes, copy the updated file into the Spicetify `Extensions` folder and run:
-
-```bash
-spicetify apply
-```
-
-Then restart Spotify if necessary.
+For more information, see the [official Spicetify documentation](https://spicetify.app/docs/).
 
 ## Build the app
 
@@ -172,7 +113,7 @@ To build the Electron app's project output:
 npm run build
 ```
 
-The current package scripts provide development and build commands. A packaged, end-user installer is not configured by these scripts alone; creating a distributable installer will require adding and configuring an Electron packaging tool.
+The Windows distributable is built with Electron Builder. Spicetify setup is handled by the app on first launch; no separate batch installer is needed.
 
 ## Troubleshooting
 

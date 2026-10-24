@@ -41,8 +41,9 @@ export function SettingsPanel({ settings, themes, themeErrors, onShortcut, onUpd
   }, [isRecording, onShortcut, onError]);
 
   return (
-    <div className="settings-backdrop" onClick={onClose}>
-      <aside className="settings" onClick={(event) => event.stopPropagation()}>
+    <div className="settings-layer">
+      <div className="settings-backdrop" onClick={onClose} />
+      <aside className="settings">
         <header>
           <h2>Settings</h2>
           <IconButton label="Close" onClick={onClose}><CloseIcon size={18} /></IconButton>

@@ -1,5 +1,5 @@
 /* ---------- banner rows (playlists small, songs large) ---------- */
-.banner-row { position: relative; perspective: 1400px; }
+.banner-row { position: relative; isolation: isolate; /* keeps the cards' z-index (up to 100) inside their row, so they can never paint over the player, settings or dialogs */ }
 .banner-row.large { flex: 1; min-height: 0; --w: 170px; --h: min(330px, 94%); }
 .banner-row.medium { flex: none; height: 160px; --w: 92px; --h: 140px; }
 .banner-row.small { flex: none; height: 112px; --w: 64px; --h: 100px; }
@@ -9,17 +9,20 @@
   width: var(--w); height: var(--h);
   border-radius: 4px; overflow: hidden;
   background: #1d2a30 center / cover;
-  box-shadow: 0 14px 34px rgba(0,0,0,.5);
+  box-shadow: 0 10px 24px rgba(0,0,0,.5);
   cursor: pointer;
   outline: 1px solid transparent; outline-offset: 2px;
-  transition: transform .55s cubic-bezier(.2,.8,.2,1), opacity .45s, filter .45s, outline-color .3s, box-shadow .3s;
-  animation: cardIn .6s cubic-bezier(.2,.8,.2,1) both;
+  /* Position and fade are set by the row on every frame (see bannerLayout.ts), so they must not have transitions. */
+  transition: outline-color .3s;
+  animation: cardIn .6s cubic-bezier(.2,.8,.2,1) backwards; /* backwards: the animation lets go of the card when it ends */
   animation-delay: calc(var(--d, 0) * 45ms);
 }
-.card:not(.selected):hover { filter: brightness(1.12) saturate(1) !important; }
+/* A light wash on hover. Cheaper than a filter on every card. */
+.card::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0); transition: background .2s; pointer-events: none; }
+.card:not(.selected):hover::after { background: rgba(255,255,255,.1); }
 .banner-row.small .card { border-radius: 3px; box-shadow: 0 8px 18px rgba(0,0,0,.45); }
 .card.selected { outline-color: rgba(255,255,255,.4); }
-.card.playing { box-shadow: 0 0 0 1px var(--accent), 0 14px 34px rgba(0,0,0,.5); }
+.card.playing { box-shadow: 0 0 0 1px var(--accent), 0 10px 24px rgba(0,0,0,.5); }
 
 .card-label {
   position: absolute; left: 0; right: 0; bottom: 0;

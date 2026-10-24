@@ -1,4 +1,4 @@
-import type { Playlist, Track } from './types';
+import type { Playlist, QueueInfo, Track } from './types';
 import { bridge, spotifyRequest } from './spotifyApi';
 
 const MAX_PLAYLISTS = 200;
@@ -95,6 +95,12 @@ export async function searchTracks(query: string): Promise<Track[]> {
   });
 
   return result as Track[];
+}
+
+/** What is playing now, the songs you queued, and what comes next. Asks the Spicetify extension. */
+export async function fetchQueue(): Promise<QueueInfo> {
+  const queue = (await bridge('queue')) as QueueInfo | null;
+  return queue ?? { current: null, queued: [], upNext: [] };
 }
 
 /** The id of the logged-in user, used to know which playlists can be edited. */

@@ -1,3 +1,4 @@
+import { useSettled } from '../../controllers/useSettled';
 import type { Playlist } from '../../models/types';
 import { BannerRow } from '../BannerRow/BannerRow';
 import { IconButton } from '../IconButton/IconButton';
@@ -15,8 +16,9 @@ interface Props {
 
 /** The small row of playlist banners at the top. The one in the middle decides which songs are shown. */
 export function PlaylistRow({ playlists, selectedIndex, playingUri, onSelect, onPlay, onCreate }: Props) {
-  const selected = playlists[selectedIndex];
-  const trackCount = selected?.items?.total ?? selected?.tracks?.total ?? 0;
+  // The name under the row waits until you stop scrolling, so it does not flash on every step.
+  const shown = useSettled(playlists[selectedIndex], 140);
+  const trackCount = shown?.items?.total ?? shown?.tracks?.total ?? 0;
 
   return (
     <section className="playlists">
@@ -33,8 +35,8 @@ export function PlaylistRow({ playlists, selectedIndex, playingUri, onSelect, on
         onActivate={onPlay}
       />
       <div className="playlist-caption">
-        <span key={selected?.id} className="fade-in">
-          {selected ? `${selected.name} · ${trackCount} tracks` : '\u00a0'}
+        <span key={shown?.id} className="fade-in">
+          {shown ? `${shown.name} · ${trackCount} tracks` : '\u00a0'}
         </span>
         <IconButton label="New playlist" onClick={onCreate}><PlusIcon size={16} /></IconButton>
       </div>
