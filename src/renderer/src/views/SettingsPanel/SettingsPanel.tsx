@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AppSettings, Theme, UpdatableSettings } from '../../../../shared/types';
+import type { AccountInfo } from '../../models/types';
 import { describeAccelerator, toAccelerator } from '../../utils/accelerator';
 import { IconButton } from '../IconButton/IconButton';
 import { CloseIcon } from '../Icons';
@@ -9,6 +10,8 @@ interface Props {
   settings: AppSettings;
   themes: Theme[];
   themeErrors: string[];
+  account: AccountInfo | null;
+  accountError: string | null;
   onShortcut: (accelerator: string) => Promise<boolean>;
   onUpdate: (changes: UpdatableSettings) => void;
   onReloadThemes: () => void;
@@ -16,7 +19,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function SettingsPanel({ settings, themes, themeErrors, onShortcut, onUpdate, onReloadThemes, onError, onClose }: Props) {
+export function SettingsPanel({ settings, themes, themeErrors, account, accountError, onShortcut, onUpdate, onReloadThemes, onError, onClose }: Props) {
   const [isRecording, setIsRecording] = useState(false);
 
   // While recording, the next key combination becomes the new keybind.
@@ -48,6 +51,36 @@ export function SettingsPanel({ settings, themes, themeErrors, onShortcut, onUpd
           <h2>Settings</h2>
           <IconButton label="Close" onClick={onClose}><CloseIcon size={18} /></IconButton>
         </header>
+
+        <section>
+          <h3>Account</h3>
+          {accountError && <p className="note error">{accountError}</p>}
+          {!account && !accountError && <p className="note">Loading…</p>}
+          {account && (
+            <>
+              <div className="account">
+                <div className="account-name">{account.name || account.username || 'Unknown user'}</div>
+                <span className={`plan-badge ${account.plan}`}>
+                  {account.planLabel || 'Unknown plan'}
+                </span>
+              </div>
+              {account.name && account.username && <p className="note">{account.username}</p>}
+              {account.planLabel === 'Premium' && (
+                <p className="note">Spotify does not say which Premium plan this is (Individual, Duo, Family or Student).</p>
+              )}
+              {Object.keys(account.details).length > 0 && (
+                <details className="account-details">
+                  <summary>Account details</summary>
+                  <dl>
+                    {Object.entries(account.details).map(([key, value]) => (
+                      <div key={key}><dt>{key}</dt><dd>{value}</dd></div>
+                    ))}
+                  </dl>
+                </details>
+              )}
+            </>
+          )}
+        </section>
 
         <section>
           <h3>Open / close keybind</h3>

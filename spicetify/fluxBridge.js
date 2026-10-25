@@ -26,6 +26,9 @@
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const player = () => Spicetify.Player;
 
+  // Account settings that describe the plan. Everything else in Spotify's product state is ignored.
+  const PLAN_KEY = /product|plan|tier|catalogue|^type$|^name$|financial|family|duo|student|subscription|offer/i;
+
   let crossfadeConfig = { enabled: false, seconds: 6 };
   let crossfadeTriggeredUri = null;
 
@@ -207,6 +210,60 @@
     },
     async repeat(args) {
       return player().setRepeat(args.state === 'track' ? 2 : args.state === 'context' ? 1 : 0);
+    },
+
+    /**
+     * Who is logged in and what kind of account it is. Read-only: nothing is changed.
+     * Spotify's documented APIs only say premium or free. The exact plan (Individual, Duo, Family, Student) is
+     * only shown if the app's own account settings happen to include it, so those settings are returned too.
+     */
+    async profile() {
+      const platform = Spicetify.Platform || {};
+      const account = { name: '', username: '', plan: 'unknown', planLabel: '', details: {} };
+      let product = '';
+
+      // The name, from Spotify's own user service.
+      try {
+        const user = await platform.UserAPI.getUser();
+        account.name = user.displayName || user.display_name || '';
+        account.username = user.username || user.id || '';
+      } catch (error) {
+        /* try the next source */
+      }
+
+      // The web profile: name, id, and "premium" or "free".
+      try {
+        const me = await Spicetify.CosmosAsync.get('https://api.spotify.com/v1/me');
+        account.name = account.name || me.display_name || '';
+        account.username = account.username || me.id || '';
+        product = me.product || '';
+      } catch (error) {
+        /* try the next source */
+      }
+
+      // The app's own account settings ("product state"). Spotify renamed this in 1.2.21, so try both names.
+      try {
+        const service = platform.UserAPI._product_state_service || platform.UserAPI._product_state;
+        const values = await service.getValues();
+        const pairs = values.pairs || values;
+        for (const [key, value] of Object.entries(pairs)) {
+          if (PLAN_KEY.test(key) && typeof value === 'string' && value.length < 80 && Object.keys(account.details).length < 25) {
+            account.details[key] = value;
+          }
+        }
+        product = account.details.product || account.details.type || account.details.catalogue || product;
+      } catch (error) {
+        /* the web profile alone is enough for premium or free */
+      }
+
+      if (/premium/i.test(product)) account.plan = 'premium';
+      else if (/^(free|open)$/i.test(product)) account.plan = 'free';
+
+      // Which premium plan, if Spotify says.
+      const tier = Object.values(account.details).join(' ').match(/family|duo|student|individual|mini|basic|lite/i);
+      if (account.plan === 'premium') account.planLabel = tier ? `Premium ${tier[0][0].toUpperCase()}${tier[0].slice(1).toLowerCase()}` : 'Premium';
+      if (account.plan === 'free') account.planLabel = 'Free';
+      return account;
     },
 
     /** What is playing, the songs you queued, and what comes next from the playlist or album. */

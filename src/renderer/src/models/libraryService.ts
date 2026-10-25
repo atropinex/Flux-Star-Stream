@@ -1,4 +1,4 @@
-import type { Playlist, QueueInfo, Track } from './types';
+import type { AccountInfo, Playlist, QueueInfo, Track } from './types';
 import { bridge, spotifyRequest } from './spotifyApi';
 
 const MAX_PLAYLISTS = 200;
@@ -95,6 +95,12 @@ export async function searchTracks(query: string): Promise<Track[]> {
   });
 
   return result as Track[];
+}
+
+/** Who is logged in and what plan they have. Asks the Spicetify extension. */
+export async function fetchAccount(): Promise<AccountInfo> {
+  const account = (await bridge('profile')) as AccountInfo | null;
+  return account ?? { name: '', username: '', plan: 'unknown', planLabel: '', details: {} };
 }
 
 /** What is playing now, the songs you queued, and what comes next. Asks the Spicetify extension. */
