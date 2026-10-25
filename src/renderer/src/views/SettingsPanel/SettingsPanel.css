@@ -39,6 +39,17 @@
 .settings input[type=range] { accent-color: var(--accent); }
 .settings input:disabled { opacity: .35; }
 
+/* ---------- account ---------- */
+.account { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.account-name { min-width: 0; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plan-badge { flex: none; padding: 3px 12px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; font-size: 12px; color: var(--dim); }
+.plan-badge.premium { border-color: var(--accent); color: var(--accent); }
+.account-details { margin-top: 10px; font-size: 12px; color: var(--dim); }
+.account-details summary { cursor: pointer; }
+.account-details dl { margin: 8px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.account-details dl div { display: flex; justify-content: space-between; gap: 12px; }
+.account-details dd { margin: 0; color: var(--ink); text-align: right; word-break: break-word; }
+
 .note { margin-top: 6px; font-size: 12px; line-height: 1.5; color: var(--dim); }
 .note.error { color: #ff8f8f; user-select: text; }
 .shortcut { padding: 8px 14px; border: 1px solid var(--accent); border-radius: 8px; background: none; color: var(--accent); font-size: 13px; cursor: pointer; }

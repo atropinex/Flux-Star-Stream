@@ -34,6 +34,15 @@ export interface Device {
 
 export type RepeatState = 'off' | 'context' | 'track'; // 'context' = loop the playlist
 
+/** Who is logged in, and what kind of account it is. */
+export interface AccountInfo {
+  name: string;
+  username: string;
+  plan: 'premium' | 'free' | 'unknown';
+  planLabel: string;               // "Premium", "Premium Family" if Spotify says, "Free", or empty
+  details: Record<string, string>; // the account settings that describe the plan
+}
+
 /** The play queue, split the way Spotify shows it. */
 export interface QueueInfo {
   current: Track | null;

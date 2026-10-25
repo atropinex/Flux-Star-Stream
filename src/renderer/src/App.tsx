@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from './controllers/useAuth';
+import { useAccount } from './controllers/useAccount';
 import { useCarouselInput } from './controllers/useCarouselInput';
 import { useOverlayVisible } from './controllers/useOverlayVisible';
 import { usePlaylists } from './controllers/usePlaylists';
@@ -56,6 +57,7 @@ export default function App() {
   }, [settings?.crossfadeEnabled, settings?.crossfadeSeconds, isVisible]);
   const playing = usePlayingTracks(player.playback, library.playlists, library.version);
   const queue = useQueue(isQueueOpen, player.playback?.track.uri);
+  const account = useAccount(isSettingsOpen);
 
   const selectedTrack = list.tracks[selection.index];
   // Each time the overlay opens, jump to the playlist that is playing.
@@ -211,6 +213,8 @@ export default function App() {
             settings={settings}
             themes={theme.themes}
             themeErrors={theme.errors}
+            account={account.account}
+            accountError={account.error}
             onShortcut={changeShortcut}
             onUpdate={updateSettings}
             onReloadThemes={theme.reload}
