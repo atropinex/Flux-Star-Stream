@@ -1,10 +1,11 @@
 /* ---------- header ---------- */
 .header { flex: none; display: flex; align-items: center; gap: 16px; padding: 22px 28px 6px; }
-.brand { width: 120px; font-size: 12px; font-weight: 600; letter-spacing: .24em; color: var(--dim); }
-.header-actions { width: 120px; display: flex; justify-content: flex-end; gap: 4px; }
+/* Both sides share the free space equally, so the search bar stays exactly in the middle. */
+.brand { flex: 1 1 0; min-width: 0; font-size: 12px; font-weight: 600; letter-spacing: .24em; color: var(--dim); white-space: nowrap; }
+.header-actions { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 
 .search {
-  flex: 1; max-width: 420px; margin: 0 auto;
+  flex: 0 1 420px; margin: 0 auto;
   display: flex; align-items: center; gap: 10px;
   height: 38px; padding: 0 16px;
   border-radius: 999px; border: 1px solid var(--line); background: var(--surface);

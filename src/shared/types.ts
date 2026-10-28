@@ -4,6 +4,7 @@ export interface AppSettings {
   crossfadeEnabled: boolean; // trigger the next track early for Spotify's native crossfade
   crossfadeSeconds: number; // seconds before the end of a track to trigger the transition
   theme: string;            // id of a theme file (its name without .yaml)
+  canvasVideo: boolean;     // play the song's looping video on its banner
 }
 
 /** The settings that can change without re-registering the keybind. */

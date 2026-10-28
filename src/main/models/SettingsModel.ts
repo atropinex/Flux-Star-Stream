@@ -8,7 +8,8 @@ const DEFAULTS: AppSettings = {
   minimizeSpotify: true,
   crossfadeEnabled: false,
   crossfadeSeconds: 6,
-  theme: 'default'
+  theme: 'default',
+  canvasVideo: true
 };
 
 /** The overlay's settings, saved on this computer. */

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { AppSettings, Theme, UpdatableSettings } from '../../../../shared/types';
 import type { AccountInfo } from '../../models/types';
 import { describeAccelerator, toAccelerator } from '../../utils/accelerator';
+import { Avatar } from '../Avatar/Avatar';
 import { IconButton } from '../IconButton/IconButton';
 import { CloseIcon } from '../Icons';
 import './SettingsPanel.css';
@@ -59,6 +60,7 @@ export function SettingsPanel({ settings, themes, themeErrors, account, accountE
           {account && (
             <>
               <div className="account">
+                <Avatar url={account.avatarUrl} name={account.name || account.username || '?'} size={44} />
                 <div className="account-name">{account.name || account.username || 'Unknown user'}</div>
                 <span className={`plan-badge ${account.plan}`}>
                   {account.planLabel || 'Unknown plan'}
@@ -106,15 +108,28 @@ export function SettingsPanel({ settings, themes, themeErrors, account, accountE
         <section>
           <h3>Playback</h3>
           <label className="switch">
-            Crossfade between songs
+            Smooth transition between songs
             <input type="checkbox" checked={settings.crossfadeEnabled} onChange={(event) => onUpdate({ crossfadeEnabled: event.target.checked })} />
           </label>
           <label className="slider">
-            <span>Transition timing <b>{settings.crossfadeSeconds}s</b></span>
+            <span>Transition length <b>{settings.crossfadeSeconds}s</b></span>
             <input type="range" min="0" max="12" step="1" value={settings.crossfadeSeconds} disabled={!settings.crossfadeEnabled} onChange={(event) => onUpdate({ crossfadeSeconds: Number(event.target.value) })} />
           </label>
-          <p className="note">Set Spotify's own Crossfade songs option in Settings → Playback to enable the actual audio overlap. This controller skips to the next song early so Spotify can crossfade.</p>
+          <p className="note">The end of each song fades out and the next one fades in, so no song is ever cut short. This dips the volume, it does not overlap the songs. For a true overlap, turn on Spotify's own Crossfade (Settings → Playback) and switch this off, otherwise the volume fades twice. It is skipped while a single song is on repeat.</p>
           <p className="note">Equalizer controls aren't exposed by Spotify's current player API, so an in-app EQ can't be applied reliably.</p>
+        </section>
+
+        <section>
+          <h3>Song video</h3>
+          <label className="switch">
+            Play the song's video on its banner
+            <input type="checkbox" checked={settings.canvasVideo} onChange={(event) => onUpdate({ canvasVideo: event.target.checked })} />
+          </label>
+          <p className="note">
+            Many songs have a short looping video (Spotify calls it Canvas). When the song that is playing has one, it plays muted on that
+            song's banner and pauses with the music. Songs without one keep their cover. Spotify has to send the video, so if none ever
+            shows up, check whether Spotify's own settings have a Canvas switch turned off.
+          </p>
         </section>
 
         <section>

@@ -8,6 +8,7 @@ export interface BannerItem {
   imageUrl?: string;
   label: string;
   isPlaying?: boolean;
+  videoUrl?: string; // a looping video for this card
 }
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
   size: BannerSize;
   listKey?: string;     // when this changes, all cards are replaced and animate in
   isLoading?: boolean;  // dims the current cards while the next list is on its way
+  isVideoActive?: boolean; // the music is playing, so card videos play
   onSelect: (index: number) => void;
   onActivate: (index: number) => void; // clicking the card that is already selected
 }
@@ -30,7 +32,7 @@ const SNAP_WINDOW_MS = 150;  // right after a new list arrives, jump instead of 
  * every frame. Each frame only moves the few cards in view. Many quick wheel ticks just change the target,
  * so they never make cards stutter or restart animations.
  */
-export function BannerRow({ items, selectedIndex, size, listKey = 'static', isLoading = false, onSelect, onActivate }: Props) {
+export function BannerRow({ items, selectedIndex, size, listKey = 'static', isLoading = false, isVideoActive = false, onSelect, onActivate }: Props) {
   const cards = useRef<(HTMLDivElement | null)[]>([]);
   const position = useRef(selectedIndex); // where the row is right now (can be a fraction)
   const target = useRef(selectedIndex);   // where it is heading
@@ -122,6 +124,8 @@ export function BannerRow({ items, selectedIndex, size, listKey = 'static', isLo
             label={item.label}
             isSelected={index === selectedIndex}
             isPlaying={item.isPlaying ?? false}
+            videoUrl={item.videoUrl}
+            isVideoActive={item.videoUrl ? isVideoActive : false}
             entranceDelay={Math.min(Math.abs(index - entrance.current.center), 8)}
             register={register}
             onClick={handleClick}

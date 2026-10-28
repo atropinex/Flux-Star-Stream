@@ -1,0 +1,8 @@
+.profile-chip {
+  display: flex; align-items: center; gap: 8px; max-width: 280px; padding: 3px 12px 3px 3px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface); cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.profile-chip:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); }
+.profile-name { min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plan-badge.small { padding: 1px 8px; font-size: 11px; }

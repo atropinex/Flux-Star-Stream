@@ -9,13 +9,15 @@ interface Props {
   listKey: string;
   heading: string;       // name of the playlist it is playing from
   hasPlayback: boolean;
+  canvasUrl: string | null; // the playing song's looping video, shown on its card
+  isMusicPlaying: boolean;
   isLoading: boolean;
   onSelect: (index: number) => void;
   onActivate: (index: number) => void;
 }
 
 /** The large row: the songs of the playlist that is playing. Scroll it, and click a song to play it. */
-export function PlayingRow({ tracks, selectedIndex, playingIndex, listKey, heading, hasPlayback, isLoading, onSelect, onActivate }: Props) {
+export function PlayingRow({ tracks, selectedIndex, playingIndex, listKey, heading, hasPlayback, canvasUrl, isMusicPlaying, isLoading, onSelect, onActivate }: Props) {
   return (
     <section className="playing-row">
       <p className="row-caption">Playing from <b key={heading} className="fade-in">{heading}</b></p>
@@ -24,12 +26,14 @@ export function PlayingRow({ tracks, selectedIndex, playingIndex, listKey, headi
         size="large"
         listKey={listKey}
         isLoading={isLoading}
+        isVideoActive={isMusicPlaying}
         selectedIndex={selectedIndex}
         items={tracks.map((track, index) => ({
           key: track.id + index,
           imageUrl: track.album.images[0]?.url,
           label: track.name,
-          isPlaying: index === playingIndex
+          isPlaying: index === playingIndex,
+          videoUrl: index === playingIndex ? canvasUrl ?? undefined : undefined
         }))}
         onSelect={onSelect}     // first click centers a song
         onActivate={onActivate} // clicking the centered song plays it

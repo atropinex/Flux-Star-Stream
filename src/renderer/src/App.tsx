@@ -12,6 +12,7 @@ import { useSettings } from './controllers/useSettings';
 import { useTheme } from './controllers/useTheme';
 import { useToast } from './controllers/useToast';
 import { useTrackList } from './controllers/useTrackList';
+import { indexOfTrack } from './utils/trackIndex';
 import type { Track } from './models/types';
 import { AddToPlaylistDialog } from './views/AddToPlaylistDialog/AddToPlaylistDialog';
 import { Carousel } from './views/Carousel/Carousel';
@@ -57,7 +58,7 @@ export default function App() {
   }, [settings?.crossfadeEnabled, settings?.crossfadeSeconds, isVisible]);
   const playing = usePlayingTracks(player.playback, library.playlists, library.version);
   const queue = useQueue(isQueueOpen, player.playback?.track.uri);
-  const account = useAccount(isSettingsOpen);
+  const account = useAccount(isVisible);
 
   const selectedTrack = list.tracks[selection.index];
   // Each time the overlay opens, jump to the playlist that is playing.
@@ -80,7 +81,7 @@ export default function App() {
 
   // When a playlist's songs load, put the song that is playing in the middle.
   useEffect(() => {
-    const index = list.tracks.findIndex((track) => track.id === player.playback?.track.id);
+    const index = indexOfTrack(list.tracks, player.playback?.track.uri);
     if (index >= 0) selection.select(index);
   }, [list.tracks]);
 
@@ -142,10 +143,15 @@ export default function App() {
       <ThemeLayers theme={theme.active} />
 
       <div className="panel">
-        <Header query={query} onQueryChange={setQuery} onOpenSettings={() => {
-          setIsQueueOpen(false);
-          setIsSettingsOpen(true);
-        }} />
+        <Header
+          query={query}
+          onQueryChange={setQuery}
+          account={account.account}
+          onOpenSettings={() => {
+            setIsQueueOpen(false);
+            setIsSettingsOpen(true);
+          }}
+        />
 
         <PlaylistRow
           playlists={library.playlists}
@@ -160,7 +166,7 @@ export default function App() {
           tracks={list.tracks}
           selectedIndex={selection.index}
           listKey={list.listKey}
-          playingTrackId={player.playback?.track.id ?? null}
+          playingTrackUri={player.playback?.track.uri ?? null}
           heading={heading}
           isLoading={list.isLoading}
           hasFailed={list.hasFailed}
@@ -178,6 +184,8 @@ export default function App() {
           listKey={playing.listKey}
           heading={playing.heading}
           hasPlayback={player.playback !== null}
+          canvasUrl={settings?.canvasVideo ? player.playback?.canvasUrl ?? null : null}
+          isMusicPlaying={player.playback?.isPlaying ?? false}
           isLoading={playing.isLoading}
           onSelect={playing.select}
           onActivate={playFromPlaying}

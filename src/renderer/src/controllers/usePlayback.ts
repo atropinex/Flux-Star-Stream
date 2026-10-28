@@ -26,6 +26,7 @@ function isSamePlayback(a: PlaybackState, b: PlaybackState): boolean {
     a.volume === b.volume &&
     a.durationMs === b.durationMs &&
     a.contextUri === b.contextUri &&
+    a.canvasUrl === b.canvasUrl &&
     Math.abs(b.positionMs - estimated) < 800 // a seek or a stall would be bigger than this
   );
 }

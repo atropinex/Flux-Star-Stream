@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PlaybackState, Playlist, Track } from '../models/types';
 import { fetchPlaylistTracks } from '../models/libraryService';
+import { indexOfTrack } from '../utils/trackIndex';
 
 const PLAYLIST_PREFIX = 'spotify:playlist:';
 
@@ -34,18 +35,16 @@ export function usePlayingTracks(playback: PlaybackState | null, playlists: Play
 
   const current = playback?.track;
   const isCurrentPlaylistLoaded = Boolean(playlistId && loaded.key === playlistId && loaded.tracks.length > 0);
-  const foundIndex = current && isCurrentPlaylistLoaded
-    ? loaded.tracks.findIndex((track) => track.id === current.id)
-    : -1;
+  const foundIndex = isCurrentPlaylistLoaded ? indexOfTrack(loaded.tracks, current?.uri) : -1;
 
-  // Show the loaded playlist's song list even if Spotify's current track ID
-  // doesn't match a playlist item (for example, due to a response shape/ID mismatch).
+  // Show the loaded playlist's songs even when the playing song is not among them (for example it is a different
+  // version of the song). In that case no card is marked as playing, instead of wrongly marking the first one.
   const tracks = isCurrentPlaylistLoaded ? loaded.tracks : current ? [current] : [];
-  const playingIndex = foundIndex >= 0 ? foundIndex : 0;
-  const listKey = isCurrentPlaylistLoaded ? loaded.key : `single:${current?.id ?? ''}`;
+  const playingIndex = isCurrentPlaylistLoaded ? foundIndex : current ? 0 : -1;
+  const listKey = isCurrentPlaylistLoaded ? loaded.key : `single:${current?.uri ?? ''}`;
 
   // Follow the playing song whenever it (or the list) changes.
-  useEffect(() => setFocusIndex(playingIndex), [playingIndex, listKey]);
+  useEffect(() => setFocusIndex(Math.max(0, playingIndex)), [playingIndex, listKey]);
 
   const clamp = (index: number) => Math.max(0, Math.min(tracks.length - 1, index));
 

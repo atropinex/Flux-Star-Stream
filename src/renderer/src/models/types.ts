@@ -38,6 +38,7 @@ export type RepeatState = 'off' | 'context' | 'track'; // 'context' = loop the p
 export interface AccountInfo {
   name: string;
   username: string;
+  avatarUrl: string;               // the profile picture, or empty
   plan: 'premium' | 'free' | 'unknown';
   planLabel: string;               // "Premium", "Premium Family" if Spotify says, "Free", or empty
   details: Record<string, string>; // the account settings that describe the plan
@@ -63,4 +64,5 @@ export interface PlaybackState {
   deviceId: string | null;
   deviceName: string;
   contextUri: string | null; // the playlist (or album) it is playing from
+  canvasUrl: string | null;  // the song's looping video, if it has one
 }

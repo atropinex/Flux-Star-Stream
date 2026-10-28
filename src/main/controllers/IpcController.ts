@@ -15,6 +15,7 @@ function cleanSettings(changes: UpdatableSettings): UpdatableSettings {
     clean.crossfadeSeconds = Math.max(0, Math.min(12, Math.round(changes.crossfadeSeconds)));
   }
   if (typeof changes.theme === 'string') clean.theme = changes.theme;
+  if (typeof changes.canvasVideo === 'boolean') clean.canvasVideo = changes.canvasVideo;
   return clean;
 }
 

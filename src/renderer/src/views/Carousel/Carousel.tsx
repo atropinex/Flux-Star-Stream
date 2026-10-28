@@ -9,7 +9,7 @@ interface Props {
   selectedIndex: number;
   listKey: string;
   heading: string;      // playlist name or "Results for ..."
-  playingTrackId: string | null;
+  playingTrackUri: string | null;
   isLoading: boolean;
   hasFailed: boolean;
   isSearching: boolean;
@@ -20,7 +20,7 @@ interface Props {
 }
 
 /** The preview: a smaller row with the songs of the playlist you are browsing, and the selected song's name. */
-export function Carousel({ tracks, selectedIndex, listKey, heading, playingTrackId, isLoading, hasFailed, isSearching, onSelect, onPlay, onPlayPlaylist, onAddToPlaylist }: Props) {
+export function Carousel({ tracks, selectedIndex, listKey, heading, playingTrackUri, isLoading, hasFailed, isSearching, onSelect, onPlay, onPlayPlaylist, onAddToPlaylist }: Props) {
   // The text under the row waits until you stop scrolling, so it does not flash on every step.
   const selected = useSettled(tracks[selectedIndex], 120);
   const shownHeading = useSettled(heading, 200);
@@ -45,7 +45,7 @@ export function Carousel({ tracks, selectedIndex, listKey, heading, playingTrack
           key: track.id + index,
           imageUrl: track.album.images[0]?.url,
           label: track.name,
-          isPlaying: track.id === playingTrackId
+          isPlaying: track.uri === playingTrackUri
         }))}
         onSelect={onSelect}
         onActivate={onPlay}

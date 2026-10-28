@@ -29,27 +29,108 @@
   // Account settings that describe the plan. Everything else in Spotify's product state is ignored.
   const PLAN_KEY = /product|plan|tier|catalogue|^type$|^name$|financial|family|duo|student|subscription|offer/i;
 
-  let crossfadeConfig = { enabled: false, seconds: 6 };
-  let crossfadeTriggeredUri = null;
+  // ---------- smooth transition between songs ----------
+  //
+  // Spotify's real crossfade is part of its audio engine and cannot be switched on from here. Skipping to the next
+  // song early does NOT crossfade: the song is simply cut off. So the transition is made with the volume instead.
+  // The end of a song fades out and the start of the next one fades in, and nothing is ever skipped.
+  // That is a dip, not an overlap. For a true overlap use Spotify's own Crossfade (Settings > Playback) and turn
+  // this off, because using both would fade twice.
+  const TRANSITION_STEP_MS = 50;
+  const CROSSFADE_KEY = 'fluxBridge.crossfade';
+  const VOLUME_BACKUP_KEY = 'fluxBridge.volumeBackup';
 
-  // Trigger the next track early; Spotify's own Crossfade songs setting performs the audio overlap.
-  setInterval(() => {
-    if (!crossfadeConfig.enabled || crossfadeConfig.seconds <= 0) return;
-    const data = player().data;
-    const item = data && (data.item || data.track);
-    const uri = item?.uri;
-    if (!uri) {
-      crossfadeTriggeredUri = null;
-      return;
+  const storage = {
+    read(key) {
+      try {
+        return localStorage.getItem(key);
+      } catch (error) {
+        return null;
+      }
+    },
+    write(key, value) {
+      try {
+        if (value === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+      } catch (error) {
+        /* not saved */
+      }
     }
-    if (crossfadeTriggeredUri && crossfadeTriggeredUri !== uri) crossfadeTriggeredUri = null;
-    const duration = player().getDuration() || item.duration?.milliseconds || item.duration_ms || 0;
-    const progress = player().getProgress() || 0;
-    if (player().isPlaying() && duration > 0 && duration - progress <= crossfadeConfig.seconds * 1000 && crossfadeTriggeredUri !== uri) {
-      crossfadeTriggeredUri = uri;
-      player().next();
+  };
+
+  let crossfadeConfig = { enabled: false, seconds: 6 };
+  try {
+    // Remembered, so it still works after Spotify restarts, before the overlay has sent it again.
+    const saved = JSON.parse(storage.read(CROSSFADE_KEY) || 'null');
+    if (saved) crossfadeConfig = { enabled: Boolean(saved.enabled), seconds: Math.max(0, Math.min(12, Number(saved.seconds) || 0)) };
+  } catch (error) {
+    /* keep the defaults */
+  }
+
+  let baseVolume = null; // the volume the user chose. null while no fade is going on
+
+  /** Puts the volume back to what the user chose. */
+  function restoreVolume() {
+    if (baseVolume === null) return;
+    player().setVolume(baseVolume);
+    baseVolume = null;
+    storage.write(VOLUME_BACKUP_KEY, null);
+  }
+
+  /** From 0 (silent) to 1 (full): how loud the song should be here, going by its position. */
+  function transitionGain(progressMs, durationMs) {
+    // Each side takes half of the chosen time, so the whole transition lasts as long as the setting says.
+    const half = Math.min(crossfadeConfig.seconds * 500, durationMs / 3);
+    if (half <= 0) return 1;
+
+    const remaining = durationMs - progressMs;
+    let gain = 1;
+    if (progressMs < half) gain = Math.min(gain, Math.sin((progressMs / half) * (Math.PI / 2))); // fading in
+    if (remaining < half) gain = Math.min(gain, Math.cos((1 - remaining / half) * (Math.PI / 2))); // fading out
+    return Math.max(0, gain);
+  }
+
+  function applyTransition() {
+    try {
+      const data = player().data;
+      const item = data && (data.item || data.track);
+      const duration = player().getDuration() || (item && ((item.duration && item.duration.milliseconds) || item.duration_ms)) || 0;
+
+      const isActive =
+        crossfadeConfig.enabled && crossfadeConfig.seconds > 0 && item && duration > 0 &&
+        player().isPlaying() &&
+        player().getRepeat() !== 2; // a single song on repeat should loop cleanly
+
+      if (!isActive) return restoreVolume();
+
+      const gain = transitionGain(player().getProgress() || 0, duration);
+      if (gain >= 0.999) return restoreVolume();
+
+      if (baseVolume === null) {
+        baseVolume = player().getVolume();
+        storage.write(VOLUME_BACKUP_KEY, String(baseVolume)); // so a crash in the middle cannot leave the volume low
+      }
+      player().setVolume(baseVolume * gain);
+    } catch (error) {
+      /* the player is not ready yet */
     }
-  }, 250);
+  }
+
+  setInterval(applyTransition, TRANSITION_STEP_MS);
+  Spicetify.Player.addEventListener('songchange', applyTransition); // lower the volume the moment a song starts
+
+  // If Spotify was closed in the middle of a fade, the saved volume is put back.
+  setTimeout(() => {
+    const backup = Number(storage.read(VOLUME_BACKUP_KEY));
+    if (backup > 0 && baseVolume === null) {
+      try {
+        player().setVolume(backup);
+      } catch (error) {
+        /* ignore */
+      }
+    }
+    storage.write(VOLUME_BACKUP_KEY, null);
+  }, 2000);
 
   // ---------- what is playing ----------
 
@@ -92,6 +173,18 @@
     };
   }
 
+  /**
+   * The looping video ("Canvas") of a song, if it has one. Spotify's player puts the link in the song's metadata.
+   * Many songs have none, and some canvases are only pictures, which are skipped.
+   */
+  function canvasUrlOf(item) {
+    const meta = (item && item.metadata) || {};
+    const url = meta['canvas.url'];
+    if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return null;
+    if (/image/i.test(String(meta['canvas.type'] || ''))) return null;
+    return url;
+  }
+
   function getState() {
     const data = player().data;
     const item = data && (data.item || data.track);
@@ -99,11 +192,12 @@
 
     const repeat = player().getRepeat(); // 0 off, 1 playlist, 2 song
     const isPlaying = typeof player().isPlaying === 'function' ? player().isPlaying() : !data.isPaused;
-    const volume = player().getVolume();
+    const volume = baseVolume !== null ? baseVolume : player().getVolume(); // while fading, report the volume you chose
     const context = data.context || {};
 
     return {
       track: mapTrack(item),
+      canvasUrl: canvasUrlOf(item),
       isPlaying: Boolean(isPlaying),
       isShuffled: Boolean(player().getShuffle()),
       repeatState: repeat === 2 ? 'track' : repeat === 1 ? 'context' : 'off',
@@ -175,7 +269,8 @@
         enabled: Boolean(args.enabled),
         seconds: Math.max(0, Math.min(12, Math.round(Number(args.seconds) || 0)))
       };
-      if (!crossfadeConfig.enabled) crossfadeTriggeredUri = null;
+      storage.write(CROSSFADE_KEY, JSON.stringify(crossfadeConfig));
+      if (!crossfadeConfig.enabled) restoreVolume();
       return { ...crossfadeConfig };
     },
 
@@ -203,7 +298,13 @@
       return player().seek(Math.max(0, Math.floor(args.positionMs)));
     },
     async volume(args) {
-      return player().setVolume(Math.max(0, Math.min(1, args.percent / 100)));
+      const level = Math.max(0, Math.min(1, args.percent / 100));
+      if (baseVolume !== null) {
+        baseVolume = level; // a fade is running: change the volume it returns to
+        storage.write(VOLUME_BACKUP_KEY, String(level));
+        return null;
+      }
+      return player().setVolume(level);
     },
     async shuffle(args) {
       return player().setShuffle(Boolean(args.on));
@@ -219,7 +320,7 @@
      */
     async profile() {
       const platform = Spicetify.Platform || {};
-      const account = { name: '', username: '', plan: 'unknown', planLabel: '', details: {} };
+      const account = { name: '', username: '', avatarUrl: '', plan: 'unknown', planLabel: '', details: {} };
       let product = '';
 
       // The name, from Spotify's own user service.
@@ -227,6 +328,7 @@
         const user = await platform.UserAPI.getUser();
         account.name = user.displayName || user.display_name || '';
         account.username = user.username || user.id || '';
+        account.avatarUrl = (normalizeImages(user.images || user.avatars || user.avatar)[0] || {}).url || '';
       } catch (error) {
         /* try the next source */
       }
@@ -236,6 +338,7 @@
         const me = await Spicetify.CosmosAsync.get('https://api.spotify.com/v1/me');
         account.name = account.name || me.display_name || '';
         account.username = account.username || me.id || '';
+        account.avatarUrl = account.avatarUrl || (normalizeImages(me.images)[0] || {}).url || '';
         product = me.product || '';
       } catch (error) {
         /* try the next source */
@@ -335,7 +438,9 @@
         const artists = item.artists || item.metadata?.artists || [];
         const image = item.album?.images || item.images || item.album?.image;
         return {
-          id: item.id || item.uid || item.uri.split(':').pop(),
+          // Always from the uri. item.uid only identifies the entry's place in the playlist, so it never equals
+          // the id of the song that is playing, and nothing would be recognised as "playing".
+          id: item.uri.split(':').pop(),
           uri: item.uri,
           name: item.name || item.title || item.metadata?.title || '',
           type: 'track',

@@ -1,0 +1,7 @@
+/* Sits over the cover and under the label, the moving bars and the hover wash. Canvas videos are portrait, like the cards. */
+.card-video {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; opacity: 0; pointer-events: none;
+  transition: opacity .6s ease;
+}
+.card-video.ready { opacity: 1; }
