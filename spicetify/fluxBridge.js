@@ -242,18 +242,65 @@
     await player().playUri(trackUri); // last resort: just the song
   }
 
-  /** Plays one song, and puts the songs after it in the queue (search results). */
-  async function playSongs(uris, startUri) {
-    await player().playUri(startUri);
+  const isTrackUri = (uri) => typeof uri === 'string' && uri.startsWith('spotify:track:');
 
-    const after = uris.slice(uris.indexOf(startUri) + 1);
-    if (!after.length) return;
+  /** The songs you added to the queue yourself. The rest of the playlist that is playing is not included. */
+  function queuedEntries() {
+    const next = (Spicetify.Queue && Spicetify.Queue.nextTracks) || [];
+    return next.filter((entry) => ((entry && entry.contextTrack) || entry || {}).provider === 'queue' || (entry && entry.provider === 'queue'));
+  }
+
+  /**
+   * Empties the queue. Spotify keeps the queue when a new playlist starts, which is how songs from an earlier
+   * playlist or search ended up playing before the new one.
+   */
+  async function clearUserQueue() {
+    const api = Spicetify.Platform && Spicetify.Platform.PlayerAPI;
     try {
-      const api = Spicetify.Platform.PlayerAPI;
-      if (api.clearQueue) await api.clearQueue();
-      await api.addToQueue(after.map((uri) => ({ uri })));
+      if (api && typeof api.clearQueue === 'function') await api.clearQueue();
     } catch (error) {
-      console.warn('[fluxBridge] could not queue the next songs', error);
+      console.warn('[fluxBridge] clearQueue failed', error);
+    }
+
+    // Make sure. If anything is left, remove it one by one with the documented call.
+    await wait(150);
+    const left = queuedEntries();
+    if (left.length && typeof Spicetify.removeFromQueue === 'function') {
+      try {
+        await Spicetify.removeFromQueue(left.map((entry) => entry.contextTrack || entry));
+      } catch (error) {
+        console.warn('[fluxBridge] removeFromQueue failed', error);
+      }
+    }
+  }
+
+  async function waitUntilPlaying(uri, timeoutMs) {
+    const until = Date.now() + timeoutMs;
+    while (Date.now() < until) {
+      if (isPlayingUri(uri)) return true;
+      await wait(100);
+    }
+    return false;
+  }
+
+  /**
+   * Plays a song from a list of search results, and carries on through the rest of that list:
+   * the songs after it first, then the ones before it. Anything that was queued earlier is removed first.
+   */
+  async function playSongs(uris, startUri) {
+    const tracks = uris.filter(isTrackUri);
+    const index = tracks.indexOf(startUri);
+    const rest = index >= 0 ? [...tracks.slice(index + 1), ...tracks.slice(0, index)] : tracks.filter((uri) => uri !== startUri);
+
+    await clearUserQueue();
+    await player().playUri(startUri);
+    if (!rest.length) return;
+
+    await waitUntilPlaying(startUri, 2000); // the queue is filled once the song has really started
+    try {
+      await Spicetify.Platform.PlayerAPI.addToQueue(rest.map((uri) => ({ uri })));
+    } catch (error) {
+      console.warn('[fluxBridge] could not queue the rest of the search results', error);
     }
   }
 
@@ -275,7 +322,10 @@
     },
 
     async play(request) {
-      if (request.context_uri) return playContext(request.context_uri, request.offset && request.offset.uri);
+      if (request.context_uri) {
+        await clearUserQueue(); // songs queued earlier must not play before this playlist
+        return playContext(request.context_uri, request.offset && request.offset.uri);
+      }
 
       const uris = request.uris || [];
       const offset = request.offset || {};
